@@ -1,0 +1,39 @@
+﻿<Window x:Name="mainWindow" x:Class="ToSAddonManager.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ToSAddonManager"
+        mc:Ignorable="d"
+        Title="ToS Addon Manager" Height="650" Width="1145.646" WindowStartupLocation="CenterScreen" Loaded="MainWindow_Loaded">
+    <DockPanel x:Name="dockPanel">
+        <Menu Background="{x:Null}" DockPanel.Dock="Top" VerticalAlignment="Top">
+            <MenuItem Header="_File" InputGestureText="Alt+F" FontSize="18">
+                <MenuItem x:Name="MenuItemUpdateCache" Header="_Update Cache" Click="MenuItemUpdateCache_Click"/>
+                <MenuItem x:Name="MenuItemSelectToSDir" Header="_Select ToS Install Directory" Click="MenuItemSelectToSDir_Click"/>
+                <Separator/>
+                <MenuItem x:Name="MenuItemExitButton" Header="E_xit" Click="exitButtonClicked"/>
+            </MenuItem>
+        </Menu>
+        <Grid DockPanel.Dock="Top" Height="50">
+            <TextBlock x:Name="filterTextBlock" Margin="0,10,291,0" TextWrapping="Wrap" Text="Filter: " VerticalAlignment="Top" FontSize="18" HorizontalAlignment="Right" Width="48"/>
+            <TextBox x:Name="filterTB" Height="30" Margin="0,10,10,0" TextWrapping="Wrap" VerticalAlignment="Top" KeyDown="filterTBKeyDownHandler" FontSize="18" HorizontalAlignment="Right" Width="276"/>
+        </Grid>
+        <StatusBar x:Name="statusBar1" Height="35" Background="{x:Null}" BorderBrush="Black" DockPanel.Dock="Bottom" VerticalAlignment="Bottom">
+            <TextBlock x:Name="statusBar1TextBlock"/>
+        </StatusBar>
+
+        <TabControl x:Name="repoTabs">
+            <TabItem Header="iToS" Selector.Selected="RepoTabs_SelectionChanged" FontSize="18">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <WrapPanel x:Name="iToSWP" />
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="jToS" Selector.Selected="RepoTabs_SelectionChanged" FontSize="18">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                    <WrapPanel x:Name="jToSWP" />
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>
