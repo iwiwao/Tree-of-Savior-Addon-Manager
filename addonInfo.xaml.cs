@@ -87,13 +87,30 @@ namespace ToSAddonManager {
             }
         } // end ActionButton_Click
 
-        private void UpdateButton_Click(object sender, RoutedEventArgs e) {
+        private async void UpdateButton_Click(object sender, RoutedEventArgs e) {
             try {
-                MessageBox.Show("OK Update");
+                actionButton.IsEnabled = false;
+                closeButton.IsEnabled = false;
+                updateButton.IsEnabled = false;
+                // Going to just use the same functionality as the install button (for now)
+                Progress<taskProgressMsg> progressMessages = new Progress<taskProgressMsg>(updateForTaskProgress);
+                Task<bool> downloadResultBool = await Task.Factory.StartNew(() => downloadAndSaveAddon(progressMessages));
+                if (!downloadResultBool.Result) { MessageBox.Show("Apparently, there was an error while attempting to download the addon.. :<"); return; }
+                statusBar1TextBlock.Text = "Updating installed addon list...";
+                bool updateListResultBoolStage1 = updateInstalledAddonList(1); // Remove old record.
+                bool updateListResultBoolStage2 = updateInstalledAddonList(0);
+                if (!updateListResultBoolStage1 || !updateListResultBoolStage2) { MessageBox.Show("Apparently, there was an error while attempting to update the installed addon list.. :<"); return; }
+                actionButton.Content = "Uninstall"; actionButton.Background = Brushes.LightSalmon;
+                statusBar1TextBlock.Text = "Updatge Complete";
+                updateButton.Visibility = Visibility.Hidden;
             } catch (Exception ex) {
                 Common.showError("Update Button Error", ex);
+            } finally {
+                actionButton.IsEnabled = true;
+                closeButton.IsEnabled = true;
+                updateButton.IsEnabled = true;
             }
-        }
+        } // end Updatebutton_Click
 
         private async Task<bool> downloadAndSaveAddon(IProgress<taskProgressMsg> progressMessages) {
             try {
