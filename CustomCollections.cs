@@ -22,10 +22,6 @@ namespace ToSAddonManager {
         public string Repo { get; set; }
     }
 
-    public class programSettings {
-        public string tosRootDir { get; set; }
-    }
-
     // Addon Repo Data Structure - Github API JSON
     public partial class addonDataFromRepoAPI {
         public Uri Url { get; set; }
@@ -65,33 +61,25 @@ namespace ToSAddonManager {
     }
 
     public partial class Author {
-        public Login Login { get; set; }
+        public string Login { get; set; }
         public long Id { get; set; }
-        public NodeId NodeId { get; set; }
+        public string NodeId { get; set; }
         public Uri AvatarUrl { get; set; }
         public string GravatarId { get; set; }
         public Uri Url { get; set; }
         public Uri HtmlUrl { get; set; }
         public Uri FollowersUrl { get; set; }
-        public FollowingUrl FollowingUrl { get; set; }
-        public GistsUrl GistsUrl { get; set; }
-        public StarredUrl StarredUrl { get; set; }
+        public string FollowingUrl { get; set; }
+        public string GistsUrl { get; set; }
+        public string StarredUrl { get; set; }
         public Uri SubscriptionsUrl { get; set; }
         public Uri OrganizationsUrl { get; set; }
         public Uri ReposUrl { get; set; }
-        public EventsUrl EventsUrl { get; set; }
+        public string EventsUrl { get; set; }
         public Uri ReceivedEventsUrl { get; set; }
-        public TypeEnum Type { get; set; }
+        public string Type { get; set; }
         public bool SiteAdmin { get; set; }
     }
-
-    public enum EventsUrl { HttpsApiGithubComUsersXinxsEventsPrivacy };
-    public enum FollowingUrl { HttpsApiGithubComUsersXinxsFollowingOtherUser };
-    public enum GistsUrl { HttpsApiGithubComUsersXinxsGistsGistId };
-    public enum Login { Xinxs };
-    public enum NodeId { Mdq6VxNlcjIzMjgwMdEx };
-    public enum StarredUrl { HttpsApiGithubComUsersXinxsStarredOwnerRepo };
-    public enum TypeEnum { User };
 
     // Addon Repo Data from addons.json
     public class addonDataFromRepo {
@@ -107,6 +95,11 @@ namespace ToSAddonManager {
         public string authorRepo { get; set; }
         public string whichRepo { get; set; }
         public string filterCheck { get { return string.Concat(Name, File, Description, tagsFlat, authorRepo).ToLower(); } }
+    }
+
+    public class programSettings {
+        public string tosRootDir { get; set; }
+        public bool checkForUpdates { get; set; }
     }
 
     public class installedAddons {

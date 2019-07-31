@@ -12,6 +12,9 @@
                 <MenuItem x:Name="MenuItemUpdateCache" Header="_Update Cache" Click="MenuItemUpdateCache_Click"/>
                 <MenuItem x:Name="MenuItemSelectToSDir" Header="_Select ToS Install Directory" Click="MenuItemSelectToSDir_Click"/>
                 <Separator/>
+                <MenuItem x:Name="CheckForUpdates" Header="_Check For Program Updates" Click="checkForUpdates"/>
+                <MenuItem x:Name="AllowAutoCheck" Header="_Allow Automatic Program Update Check" IsCheckable="True" Click="allowAutomaticUpdatesCheckChanged"/>
+                <Separator/>
                 <MenuItem x:Name="MenuItemExitButton" Header="E_xit" Click="exitButtonClicked"/>
             </MenuItem>
         </Menu>
@@ -72,7 +75,7 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{Binding installStatusColor}" BorderBrush="Black" BorderThickness="1" Margin="5" CornerRadius="5">
+                                <Border Background="{Binding installStatusColor}" BorderBrush="Black" BorderThickness="1" Margin="5" CornerRadius="5"  MouseDown="mouseDoubleClickAction">
                                     <Grid Width="350" Height="150" Margin="10">
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="60"/>

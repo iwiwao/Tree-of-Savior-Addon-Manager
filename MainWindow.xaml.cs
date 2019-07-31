@@ -14,6 +14,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using Newtonsoft.Json;
+using System.Net.Http;
 
 namespace ToSAddonManager {
     /// <summary>
@@ -24,27 +25,38 @@ namespace ToSAddonManager {
         //internal List<addonDataFromRepoAPI> listofAllAddonsAPI = new List<addonDataFromRepoAPI>();
         internal List<installedAddons> listOfInstalledAddons = new List<installedAddons>();
         internal programSettings tosAMProgramSettings = new programSettings(); // Just storing the ToS directory for now.
+        static internal readonly HttpClient webConnector = new HttpClient();
 
         public MainWindow() {
             InitializeComponent();
         }
 
-        private void updateForTaskProgress(taskProgressMsg progress) {
-            statusBar1TextBlock.Text = progress.currentMsg;
-            if (progress.showAsPopup) { Common.showError("Error", progress.exceptionContent); }
-        } // end updateForTaskProgress
-
         private void MainWindow_Loaded(object sender, RoutedEventArgs e) {
             try {
+                Version semanticVersion = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+                string semanticVersionStr = $"v{semanticVersion.Major}.{semanticVersion.Minor}.{semanticVersion.Build}";
+                this.Title = $"Iwiwao's ToS Addon Manager {semanticVersionStr}";
+
+                // Set initial HttpClient values as needed to connect to Github API.
+                System.Net.Http.Headers.ProductHeaderValue header = new System.Net.Http.Headers.ProductHeaderValue("IwiwaoToSAddonManager", semanticVersionStr);
+                System.Net.Http.Headers.ProductInfoHeaderValue userAgent = new System.Net.Http.Headers.ProductInfoHeaderValue(header);
+                webConnector.DefaultRequestHeaders.UserAgent.Add(userAgent);
+
                 if (System.IO.File.Exists("installedAddons.json")) { listOfInstalledAddons = JsonConvert.DeserializeObject<List<installedAddons>>(System.IO.File.ReadAllText("installedAddons.json")); } // If there is saved installed addon list, load it.
                 if (System.IO.File.Exists("completeAddonList.json")) { listOfAllAddons = JsonConvert.DeserializeObject<List<addonDataFromRepo>>(System.IO.File.ReadAllText("completeAddonList.json")); } // If there is cache data, load it.
                 //if (System.IO.File.Exists("completeAddonListAPI.json")) { listofAllAddonsAPI = JsonConvert.DeserializeObject<List<addonDataFromRepoAPI>>(System.IO.File.ReadAllText("completeAddonListAPI.json")); }
                 if (System.IO.File.Exists("programSettings.json")) { tosAMProgramSettings = JsonConvert.DeserializeObject<programSettings>(System.IO.File.ReadAllText("programSettings.json")); } // If there is a saved settings file, load it.
                 displayActiveGrid("iToS"); displayActiveGrid("jToS");
+                if (tosAMProgramSettings.checkForUpdates) { AllowAutoCheck.IsChecked = true; checkForUpdates(null, null); }
             } catch (Exception ex) {
                 Common.showError("Program Load Error", ex);
             }
         } // end MainWindow_Loaded
+
+        private void updateForTaskProgress(taskProgressMsg progress) {
+            statusBar1TextBlock.Text = progress.currentMsg;
+            if (progress.showAsPopup) { Common.showError("Error", progress.exceptionContent); }
+        } // end updateForTaskProgress
 
         #region "Menu and TB Items"
         private void exitButtonClicked(object sender, RoutedEventArgs e) {
@@ -53,22 +65,23 @@ namespace ToSAddonManager {
 
         private async void MenuItemUpdateCache_Click(object sender, RoutedEventArgs e) {
             try {
+                if (string.IsNullOrEmpty(tosAMProgramSettings.tosRootDir) || !System.IO.Directory.Exists(tosAMProgramSettings.tosRootDir)) { MessageBox.Show("Please set a valid ToS Program directory (Required for dependancy download)"); return; }
                 MenuItemUpdateCache.IsEnabled = false;
                 statusBar1TextBlock.Text = "Started Cache Update";
                 Progress<taskProgressMsg> progressMessages = new Progress<taskProgressMsg>(updateForTaskProgress); // Will contain the progress messages from each function.
-                List<addonDataFromRepo> iToSAddonCollection = new List<addonDataFromRepo>();
-                List<addonDataFromRepoAPI> iToSAddonAPICollection = new List<addonDataFromRepoAPI>(); // Would be used for Github API data, but rate limiting makes this less than useful.
-                List<addonDataFromRepo> jToSAddonCollection = new List<addonDataFromRepo>();
-                List<addonDataFromRepoAPI> jToSAddonAPICollection = new List<addonDataFromRepoAPI>();
 
-                await Task.Factory.StartNew(() => callParentUpdateCache(progressMessages, 0, ref iToSAddonCollection, ref iToSAddonAPICollection)); // iToS 
-                iToSAddonCollection.Select(x => { x.whichRepo = "iToS"; return x; }).ToList();
+                repoCacheManagement rCM = new repoCacheManagement() { rootDir = tosAMProgramSettings.tosRootDir, webConnector = webConnector };
 
-                await Task.Factory.StartNew(() => callParentUpdateCache(progressMessages, 1, ref jToSAddonCollection, ref jToSAddonAPICollection)); // jToS
-                jToSAddonCollection.Select(x => { x.whichRepo = "jToS"; return x; }).ToList();
+                (List<addonDataFromRepo>, List<addonDataFromRepoAPI>) iToSCollections = await rCM.callParentUpdateCache(progressMessages, 0); // iToS 
+                iToSCollections.Item1.Select(x => { x.whichRepo = "iToS"; return x; }).ToList();
 
-                listOfAllAddons.Clear(); listOfAllAddons = iToSAddonCollection.Concat(jToSAddonCollection).ToList();
-                //listofAllAddonsAPI.Clear(); listofAllAddonsAPI = iToSAddonAPICollection.Concat(jToSAddonAPICollection).ToList();
+                (List<addonDataFromRepo>, List<addonDataFromRepoAPI>) jToSCollections = await rCM.callParentUpdateCache(progressMessages, 1); // jToS
+                jToSCollections.Item1.Select(x => { x.whichRepo = "jToS"; return x; }).ToList();
+                
+                await rCM.callParentUpdateCache(progressMessages, 2); // Dependencies - does not care about return values.
+
+                listOfAllAddons.Clear(); listOfAllAddons = iToSCollections.Item1.Concat(jToSCollections.Item1).ToList();
+                //listofAllAddonsAPI.Clear(); listofAllAddonsAPI = iToSCollections.Item2.Concat(jToSCollections.Item2).ToList();
 
                 saveCacheDataToFile(true, progressMessages);
 
@@ -96,86 +109,50 @@ namespace ToSAddonManager {
         private void filterTBKeyDownHandler(object sender, KeyEventArgs e) {
             if (e.Key == Key.Return) { displayActiveGrid("iToS"); displayActiveGrid("jToS"); }
         } // end filterTBKeyDownHandler
+
+        private async void checkForUpdates(object sender, RoutedEventArgs e) {
+            try {
+                Version semanticVersion = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+                string semanticVersionStr = $"{semanticVersion.Major}.{semanticVersion.Minor}.{semanticVersion.Build}";
+                HttpResponseMessage webConnectorResponse = await webConnector.GetAsync("https://api.github.com/repos/iwiwao/Tree-of-Savior-Addon-Manager/releases/latest");
+                webConnectorResponse.EnsureSuccessStatusCode();
+                string resultString = await webConnectorResponse.Content.ReadAsStringAsync();
+                addonDataFromRepoAPI ToSProgramInfo = JsonConvert.DeserializeObject<addonDataFromRepoAPI>(resultString);
+                webConnectorResponse.Dispose();
+                Version availableVersion = Version.Parse(ToSProgramInfo.Name.Replace("v", ""));
+                string rootMsg = $"Current Version: {semanticVersionStr}{Environment.NewLine}Latest Version: {ToSProgramInfo.Name}{Environment.NewLine}{Environment.NewLine}";
+                if (semanticVersion < availableVersion) {
+                    MessageBoxResult mbr = MessageBox.Show($"{rootMsg}Would you like to open a webbrowser to download the latest version?{Environment.NewLine}{Environment.NewLine}Changes:{Environment.NewLine}{ToSProgramInfo.Body}", "Update Available", MessageBoxButton.YesNo, MessageBoxImage.Exclamation);
+                    if (mbr == MessageBoxResult.Yes) { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/iwiwao/Tree-of-Savior-Addon-Manager/releases")); }
+                } else {
+                    if (sender != null) { MessageBox.Show($"{rootMsg}Looks like you are up to date.", "All Good", MessageBoxButton.OK, MessageBoxImage.Information); } // Sender will be null when called from program launch, where we do not want to show this box.
+                }
+            } catch (Exception ex) {
+                Common.showError("Check for Updates Error", ex);
+            }
+        } // end checkForUpdates
+
+        private void allowAutomaticUpdatesCheckChanged(object sender, RoutedEventArgs e) {
+            try {
+                tosAMProgramSettings.checkForUpdates = AllowAutoCheck.IsChecked;
+                System.IO.File.WriteAllText("programSettings.json", JsonConvert.SerializeObject(tosAMProgramSettings));
+            } catch (Exception ex) {
+                Common.showError("Allow Automatic Update Check Changed Error", ex);
+            }
+        }
         #endregion
 
-        #region "Cache functions"
-        private void callParentUpdateCache(IProgress<taskProgressMsg> progressMessages, int mode, ref List<addonDataFromRepo> addonCollection, ref List<addonDataFromRepoAPI> addonAPICollection) { //Task<string>
+        private void saveInstalledAddonDataToFile() {
             try {
-                if (mode == 0) {
-                    progressMessages.Report(new taskProgressMsg { currentMsg = "Checking iToS Addons" });
-                    repoParentData iToSRepo = returnParentRepoData("https://raw.githubusercontent.com/Tree-of-Savior-Addon-Community/Addons/master/addons.json", progressMessages);
-                    returnAddonData(iToSRepo, ref addonCollection, ref addonAPICollection, progressMessages);
-                } else if (mode == 1) {
-                    progressMessages.Report(new taskProgressMsg { currentMsg = "Checking jToS Addons" });
-                    repoParentData jToSRepo = returnParentRepoData("https://raw.githubusercontent.com/JTosAddon/Addons/master/managers.json", progressMessages);
-                    returnAddonData(jToSRepo, ref addonCollection, ref addonAPICollection, progressMessages);
+                if (listOfInstalledAddons.Count > 0) {
+                    System.IO.File.WriteAllText("installedAddons.json", JsonConvert.SerializeObject(listOfInstalledAddons));
+                } else {
+                    System.IO.File.Delete("installedAddons.json");
                 }
             } catch (Exception ex) {
-                progressMessages.Report(new taskProgressMsg { currentMsg = "Error in callParentUpdateCache", showAsPopup = true, exceptionContent = ex });
+                Common.showError("Save Installed Addon Data To File Error", ex);
             }
-            progressMessages.Report(new taskProgressMsg { currentMsg = "Completed Cache Update" });
-        } // end callParentUpdateCache
-
-        private repoParentData returnParentRepoData(string uri, IProgress<taskProgressMsg> progressMessages) {
-            repoParentData repo = new repoParentData();
-            try {
-                System.Net.WebRequest request = System.Net.WebRequest.Create(uri);
-                request.ContentType = "application/json; charset=utf-8";
-                System.Net.WebResponse response = request.GetResponse();
-                System.IO.Stream responseStream = response.GetResponseStream();
-                System.IO.StreamReader responseReader = new System.IO.StreamReader(responseStream, System.Text.Encoding.UTF8);
-                string responseText = responseReader.ReadToEnd();
-                responseReader.Close(); responseStream.Close(); response.Close(); request = null;
-                repo = JsonConvert.DeserializeObject<repoParentData>(responseText);
-            } catch (Exception ex) {
-                progressMessages.Report(new taskProgressMsg { currentMsg = "Error in returnParentRepoData: ", showAsPopup = true, exceptionContent = ex });
-            }
-            return repo;
-        } // end returnParentRepoData
-
-        private void returnAddonData(repoParentData repo, ref List<addonDataFromRepo> addonCollection, ref List<addonDataFromRepoAPI> addonAPICollection, IProgress<taskProgressMsg> progressMessages) {
-            try {
-                foreach (Source repoSource in repo.Sources) {
-                    progressMessages.Report(new taskProgressMsg { currentMsg = $"Checking Addons at repo: {repoSource.Repo}" });
-                    List<addonDataFromRepo> addons = new List<addonDataFromRepo>();
-                    List<addonDataFromRepoAPI> addonsAPI = new List<addonDataFromRepoAPI>();
-                    returnChildRepoData(repoSource.Repo, ref addons, ref addonsAPI, progressMessages);
-                    addonCollection = addonCollection.Concat(addons).ToList();
-                    //addonAPICollection = addonAPICollection.Concat(addonsAPI).ToList();
-                }
-            } catch (Exception ex) {
-                progressMessages.Report(new taskProgressMsg { currentMsg = "Error in returnAddonData", showAsPopup = true, exceptionContent = ex });
-            }
-        } // end returnAddonData
-
-        private void returnChildRepoData(string repoURI, ref List<addonDataFromRepo> addons, ref List<addonDataFromRepoAPI> addonsAPI, IProgress<taskProgressMsg> progressMessages) {
-            try {
-                System.Net.HttpWebRequest request = (System.Net.HttpWebRequest)System.Net.HttpWebRequest.Create($"https://raw.githubusercontent.com/{repoURI}/master/addons.json");
-                System.Net.HttpWebResponse response = (System.Net.HttpWebResponse)request.GetResponse();
-                if (response.StatusCode != System.Net.HttpStatusCode.NotFound) {
-                    System.IO.Stream responseStream = response.GetResponseStream();
-                    System.IO.StreamReader responseReader = new System.IO.StreamReader(responseStream, System.Text.Encoding.UTF8);
-                    string responseText = responseReader.ReadToEnd();
-                    responseReader.Close(); responseStream.Close(); response.Close(); request = null;
-                    addons = JsonConvert.DeserializeObject<List<addonDataFromRepo>>(responseText);
-                    addons.Select(x => { x.authorRepo = repoURI; x.tagsFlat = string.Join(",", x.Tags); return x; }).ToList();
-                }
-
-                // Pull additional data from github API. -- Not really possible with unauthententiced requests due to rate limit of 60 requests per hour.
-                //System.Net.HttpWebRequest request1 = (System.Net.HttpWebRequest)System.Net.WebRequest.Create($"https://api.github.com/repos/{repoURI}/releases");
-                //request1.ContentType = "application/json; charset=utf-8";
-                //request1.Accept = "application/vnd.github.v3+json";
-                //System.Net.WebResponse response1 = request1.GetResponse();
-                //System.IO.Stream responseStream1 = response1.GetResponseStream();
-                //System.IO.StreamReader responseReader1 = new System.IO.StreamReader(responseStream1, System.Text.Encoding.UTF8);
-                //string responseText1 = responseReader1.ReadToEnd();
-                //responseReader1.Close(); responseStream1.Close(); response1.Close(); request1 = null;
-                //addonsAPI = JsonConvert.DeserializeObject<List<addonDataFromRepoAPI>>(responseText);
-            } catch (Exception ex) {
-                progressMessages.Report(new taskProgressMsg { currentMsg = "Error in reutrnChildRepoData", showAsPopup = true, exceptionContent = ex });
-            }
-            //return addons;
-        } // end returnChildRepoData
+        } // end saveInstallDataToFile
 
         private void saveCacheDataToFile(bool purgeFile, IProgress<taskProgressMsg> progressMessages) {
             try {
@@ -190,19 +167,6 @@ namespace ToSAddonManager {
                 progressMessages.Report(new taskProgressMsg { currentMsg = "Error in saveCacheDataToFile", showAsPopup = true, exceptionContent = ex });
             }
         } // end saveCacheDataToFile
-
-        private void saveInstalledAddonDataToFile() {
-            try {
-                if (listOfInstalledAddons.Count > 0) {
-                    System.IO.File.WriteAllText("installedAddons.json", JsonConvert.SerializeObject(listOfInstalledAddons));
-                } else {
-                    System.IO.File.Delete("installedAddons.json");
-                }
-            } catch (Exception ex) {
-                Common.showError("Save Installed Addon Data To File Error", ex);
-            }
-        } // end saveInstallDataToFile
-        #endregion
 
         #region "WrapPanel Setup and Control"
         private void displayActiveGrid(string selectedTab) {
@@ -239,7 +203,7 @@ namespace ToSAddonManager {
                     addonDisplayData addon = (addonDisplayData)c.DataContext;
                     addonDataFromRepo selectedAddon = listOfAllAddons.FirstOrDefault(x => x.whichRepo == addon.whichRepo && x.Name == addon.name);
                     if (selectedAddon != null) {
-                        addonInfo addonInfoWin = new addonInfo { addonData = selectedAddon, installedAddonData = listOfInstalledAddons, rootDir = tosAMProgramSettings.tosRootDir, Owner = this };
+                        addonInfo addonInfoWin = new addonInfo { addonData = selectedAddon, installedAddonData = listOfInstalledAddons, rootDir = tosAMProgramSettings.tosRootDir, webConnector = webConnector, Owner = this };
                         addonInfoWin.ShowDialog();
                         // The popup window can update the installed Addon list, so we need to update our List<> and cache file, and then re-process the display.
                         listOfInstalledAddons = addonInfoWin.installedAddonData;

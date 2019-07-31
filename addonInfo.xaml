@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ToSAddonManager"
         mc:Ignorable="d"
-        Title="Addon Information" Height="750" Width="800" Loaded="AddonInfoWindow_Loaded" WindowStartupLocation="CenterOwner" ShowInTaskbar="False" MaxWidth="800" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.CanContentScroll="True" MinWidth="800" MinHeight="750" MaxHeight="1000">
+        Title="Addon Information" Height="500" Width="800" Loaded="AddonInfoWindow_Loaded" WindowStartupLocation="CenterOwner" ShowInTaskbar="False" MaxWidth="800" MinWidth="800" MinHeight="500">
 
     <Window.Resources>
         <Style TargetType="TextBlock">
@@ -23,34 +23,35 @@
     </Window.Resources>
 
     <DockPanel x:Name="infoDocPanel" LastChildFill="False">
-        <StatusBar x:Name="statusBar1" Height="35" Background="{x:Null}" BorderBrush="Black" DockPanel.Dock="Bottom" VerticalAlignment="Bottom">
-            <TextBlock x:Name="statusBar1TextBlock"/>
+        <StatusBar x:Name="statusBar1" Height="35" Background="{x:Null}" BorderBrush="Black" DockPanel.Dock="Bottom" VerticalAlignment="Center">
+            <TextBlock x:Name="statusBar1TextBlock" Height="30" FontSize="14" VerticalAlignment="Center"/>
         </StatusBar>
 
         <Grid Margin="10" Width="750" >
             <Grid.RowDefinitions>
-                <RowDefinition/>
-                <RowDefinition/>
-                <RowDefinition/>
-                <RowDefinition/>
-                <RowDefinition/>
-                <RowDefinition/>
+                <RowDefinition Height="50"/>
+                <RowDefinition Height="50"/>
+                <RowDefinition Height="50"/>
+                <RowDefinition Height="50"/>
+                <RowDefinition Height="110"/>
                 <RowDefinition/>
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="150"/>
                 <ColumnDefinition/>
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:"/>
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" FontWeight="Bold"/>
             <TextBlock Grid.Row="0" Grid.Column="1" Name="nameValue"/>
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="File:"/>
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="File:" FontWeight="Bold"/>
             <TextBlock Grid.Row="1" Grid.Column="1" Name="fileValue"/>
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="Version:"/>
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Version:" FontWeight="Bold"/>
             <TextBlock Grid.Row="2" Grid.Column="1" Name="versionValue"/>
-            <TextBlock Grid.Row="3" Grid.Column="0" Text="Tags:"/>
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="Tags:" FontWeight="Bold"/>
             <TextBlock Grid.Row="3" Grid.Column="1" Name="tagsValue"/>
-            <TextBlock Grid.Row="4" Grid.Column="0" Text="Description:"/>
-            <TextBlock Grid.Row="4" Grid.Column="1" Name="descriptionValue" Grid.RowSpan="2"/>
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="Description:" FontWeight="Bold"/>
+            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Grid.Row="4" Grid.Column="1">
+                <TextBlock Name="descriptionValue"/>
+            </ScrollViewer>
             <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center">
                 <StackPanel.Effect>
                     <DropShadowEffect Opacity="0.25" ShadowDepth="3"/>
