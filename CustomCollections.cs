@@ -104,6 +104,7 @@ namespace ToSAddonManager {
 
     public class installedAddons {
         public string addonName { get; set; }
+        public string addonFilename { get; set; }
         public string addonVersion { get; set; }
         public string addonRepo { get; set; }
         public string addonAuthorRepo { get; set; }
@@ -119,5 +120,7 @@ namespace ToSAddonManager {
         public string availableVersion { get; set; }
         public string description { get; set; }
         public System.Windows.Media.SolidColorBrush installStatusColor { get; set; }
+        public System.Windows.Visibility allowInstall { get; set; }
+        public System.Windows.Visibility allowDelete { get; set; }
     }
 }

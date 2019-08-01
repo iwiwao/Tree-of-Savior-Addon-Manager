@@ -64,7 +64,7 @@ namespace ToSAddonManager {
                 // Which action to perform?
                 if (actionButton.Content.ToString() == "Install") {
                     Progress<taskProgressMsg> progressMessages = new Progress<taskProgressMsg>(updateForTaskProgress); // Will contain the progress messages from each function.
-                    bool downloadResultBool = await Task.Run(() => am.downloadAndSaveAddon(progressMessages, webConnector));
+                    bool downloadResultBool = await am.downloadAndSaveAddon(progressMessages, webConnector);
                     if (!downloadResultBool) { MessageBox.Show("Apparently, there was an error while attempting to download the addon.. :<"); return; }
                     statusBar1TextBlock.Text = "Updating installed addon list...";
                     bool updateListResultBool = am.updateInstalledAddonList(0);

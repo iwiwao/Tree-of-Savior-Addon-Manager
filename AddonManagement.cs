@@ -9,7 +9,6 @@ namespace ToSAddonManager {
         internal List<installedAddons> installedAddonData { get; set; }
         internal addonDataFromRepo addonData { get; set; }
         internal string rootDir { get; set; }
-        
 
         internal async Task<bool> downloadAndSaveAddon(IProgress<taskProgressMsg> progressMessages, HttpClient webConnector) {
             try {
@@ -44,7 +43,7 @@ namespace ToSAddonManager {
         internal bool updateInstalledAddonList(int action) {
             try {
                 if (action == 0) { // Add
-                    installedAddonData.Add(new installedAddons { addonAuthorRepo = addonData.authorRepo, addonName = addonData.Name, addonRepo = addonData.whichRepo, addonVersion = addonData.FileVersion, installDate = DateTime.Now });
+                    installedAddonData.Add(new installedAddons { addonAuthorRepo = addonData.authorRepo, addonFilename = addonData.File, addonName = addonData.Name, addonRepo = addonData.whichRepo, addonVersion = addonData.FileVersion, installDate = DateTime.Now });
                 } else if (action == 1) { // Remove
                     installedAddons q = installedAddonData.FirstOrDefault(x => x.addonName == addonData.Name && x.addonRepo == addonData.whichRepo); // Check only the name and repo - ignore the version in case we've come in with a new version and it doesn't match the installed version.
                     if (q != null) { installedAddonData.Remove(q); }

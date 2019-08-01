@@ -4,6 +4,8 @@
              xmlns:local="clr-namespace:ToSAddonManager"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <BitmapImage x:Key="infoIcon" UriSource="pack://application:,,,/Images/infoIcon.png" CacheOption="OnLoad"/>
+        <BitmapImage x:Key="installIcon" UriSource="pack://application:,,,/Images/installIcon.png" CacheOption="OnLoad"/>
+        <BitmapImage x:Key="deleteIcon" UriSource="pack://application:,,,/Images/deleteIcon.png" CacheOption="OnLoad"/>
     </Application.Resources>
 </Application>

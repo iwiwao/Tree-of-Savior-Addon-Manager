@@ -24,7 +24,7 @@ namespace ToSAddonManager {
         internal List<addonDataFromRepo> listOfAllAddons = new List<addonDataFromRepo>(); // sigh..
         //internal List<addonDataFromRepoAPI> listofAllAddonsAPI = new List<addonDataFromRepoAPI>();
         internal List<installedAddons> listOfInstalledAddons = new List<installedAddons>();
-        internal programSettings tosAMProgramSettings = new programSettings(); // Just storing the ToS directory for now.
+        internal programSettings tosAMProgramSettings = new programSettings();
         static internal readonly HttpClient webConnector = new HttpClient();
 
         public MainWindow() {
@@ -58,6 +58,32 @@ namespace ToSAddonManager {
             if (progress.showAsPopup) { Common.showError("Error", progress.exceptionContent); }
         } // end updateForTaskProgress
 
+        private void saveInstalledAddonDataToFile() {
+            try {
+                if (listOfInstalledAddons.Count > 0) {
+                    System.IO.File.WriteAllText("installedAddons.json", JsonConvert.SerializeObject(listOfInstalledAddons));
+                } else {
+                    System.IO.File.Delete("installedAddons.json");
+                }
+            } catch (Exception ex) {
+                Common.showError("Save Installed Addon Data To File Error", ex);
+            }
+        } // end saveInstallDataToFile
+
+        private void saveCacheDataToFile(bool purgeFile, IProgress<taskProgressMsg> progressMessages) {
+            try {
+                if (purgeFile) {
+                    System.IO.File.WriteAllText("completeAddonList.json", JsonConvert.SerializeObject(listOfAllAddons));
+                    //System.IO.File.WriteAllText("completeAddonListAPI.json", JsonConvert.SerializeObject(listofAllAddonsAPI));
+                } else {
+                    System.IO.File.AppendAllText("completeAddonList.json", JsonConvert.SerializeObject(listOfAllAddons));
+                    //System.IO.File.AppendAllText("completeAddonListAPI.json", JsonConvert.SerializeObject(listofAllAddonsAPI));
+                }
+            } catch (Exception ex) {
+                progressMessages.Report(new taskProgressMsg { currentMsg = "Error in saveCacheDataToFile", showAsPopup = true, exceptionContent = ex });
+            }
+        } // end saveCacheDataToFile
+
         #region "Menu and TB Items"
         private void exitButtonClicked(object sender, RoutedEventArgs e) {
             System.Windows.Application.Current.Shutdown();
@@ -77,7 +103,7 @@ namespace ToSAddonManager {
 
                 (List<addonDataFromRepo>, List<addonDataFromRepoAPI>) jToSCollections = await rCM.callParentUpdateCache(progressMessages, 1); // jToS
                 jToSCollections.Item1.Select(x => { x.whichRepo = "jToS"; return x; }).ToList();
-                
+
                 await rCM.callParentUpdateCache(progressMessages, 2); // Dependencies - does not care about return values.
 
                 listOfAllAddons.Clear(); listOfAllAddons = iToSCollections.Item1.Concat(jToSCollections.Item1).ToList();
@@ -140,33 +166,44 @@ namespace ToSAddonManager {
                 Common.showError("Allow Automatic Update Check Changed Error", ex);
             }
         }
+
+        private void FindExistingAddons_Click(object sender, RoutedEventArgs e) {
+            try {
+                if (string.IsNullOrEmpty(tosAMProgramSettings.tosRootDir) || !System.IO.Directory.Exists(tosAMProgramSettings.tosRootDir)) { MessageBox.Show("Please set a valid ToS Program directory."); return; }
+                MessageBoxResult mb = MessageBox.Show("This will attempt to find addons that were previously installed manually or through another manager and update the installed addon list.  Proceed?", "Find Existing Addons", MessageBoxButton.YesNo, MessageBoxImage.Information);
+                if (mb == MessageBoxResult.Yes) {
+                    string[] fileList = System.IO.Directory.GetFiles($"{tosAMProgramSettings.tosRootDir}/data/", "_*.ipf");
+                    AddonManagement am = new AddonManagement();
+                    int z = 0;
+                    foreach (string q in fileList) {
+                        System.IO.FileInfo fI = new System.IO.FileInfo(q);
+                        string[] fileNameSplit = fI.Name.Split('-'); // 0 will be root of the filename, with _ at the start.  1 will be the unicode char.  2 will be version + ".ipf"
+                        string fN = fileNameSplit[0].Replace("_", "");
+                        string fV = fileNameSplit[2].Replace(".ipf", "");
+                        if (listOfInstalledAddons.FirstOrDefault(x => x.addonFilename == fN && x.addonVersion == fV) == null) { // Addon is not installed from this manager.
+                            addonDataFromRepo foundAddon = listOfAllAddons.FirstOrDefault(i => i.File == fN && i.Unicode == fileNameSplit[1] && i.FileVersion == fV);
+                            if (foundAddon != null) {
+                                am.installedAddonData = listOfInstalledAddons; am.addonData = foundAddon;
+                                am.updateInstalledAddonList(0);
+                                listOfInstalledAddons = am.installedAddonData;
+                            }
+                        }
+                        z++;
+                    }
+                    if (z > 0) {
+                        saveInstalledAddonDataToFile();
+                        displayActiveGrid("iToS"); displayActiveGrid("jToS");
+                        MessageBox.Show($"Found {z} existing addons and added them to the list of installed addons", "Found Addons", MessageBoxButton.OK, MessageBoxImage.Information);
+                    } else {
+                        MessageBox.Show("We did not find any additional addons", "No Addons Discovered", MessageBoxButton.OK, MessageBoxImage.Information);
+                    }
+                }
+            } catch (Exception ex) {
+                Common.showError("Allow Automatic Update Check Changed Error", ex);
+            }
+        }
+
         #endregion
-
-        private void saveInstalledAddonDataToFile() {
-            try {
-                if (listOfInstalledAddons.Count > 0) {
-                    System.IO.File.WriteAllText("installedAddons.json", JsonConvert.SerializeObject(listOfInstalledAddons));
-                } else {
-                    System.IO.File.Delete("installedAddons.json");
-                }
-            } catch (Exception ex) {
-                Common.showError("Save Installed Addon Data To File Error", ex);
-            }
-        } // end saveInstallDataToFile
-
-        private void saveCacheDataToFile(bool purgeFile, IProgress<taskProgressMsg> progressMessages) {
-            try {
-                if (purgeFile) {
-                    System.IO.File.WriteAllText("completeAddonList.json", JsonConvert.SerializeObject(listOfAllAddons));
-                    //System.IO.File.WriteAllText("completeAddonListAPI.json", JsonConvert.SerializeObject(listofAllAddonsAPI));
-                } else {
-                    System.IO.File.AppendAllText("completeAddonList.json", JsonConvert.SerializeObject(listOfAllAddons));
-                    //System.IO.File.AppendAllText("completeAddonListAPI.json", JsonConvert.SerializeObject(listofAllAddonsAPI));
-                }
-            } catch (Exception ex) {
-                progressMessages.Report(new taskProgressMsg { currentMsg = "Error in saveCacheDataToFile", showAsPopup = true, exceptionContent = ex });
-            }
-        } // end saveCacheDataToFile
 
         #region "WrapPanel Setup and Control"
         private void displayActiveGrid(string selectedTab) {
@@ -178,13 +215,15 @@ namespace ToSAddonManager {
 
             List<addonDisplayData> addonDisplayList = new List<addonDisplayData>();
             foreach (addonDataFromRepo a in filteredAddonList) {
-                addonDisplayData q = new addonDisplayData() { name = a.Name, availableVersion = a.FileVersion, description = a.Description, installStatusColor = Brushes.White, whichRepo = a.whichRepo };
+                addonDisplayData q = new addonDisplayData() { name = a.Name, availableVersion = a.FileVersion, description = a.Description, installStatusColor = Brushes.White, whichRepo = a.whichRepo, allowInstall = Visibility.Visible, allowDelete = Visibility.Hidden };
                 string[] aR = a.authorRepo.Split('/'); q.author = $"by {aR[0]}";
                 q.authorRepoUri = new Hyperlink(new Run(a.authorRepo)) { NavigateUri = new Uri($"https://github.com/{a.authorRepo}") };
                 q.authorRepoUri.RequestNavigate += new RequestNavigateEventHandler(delegate (object sender, RequestNavigateEventArgs e) { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(e.Uri.AbsoluteUri)); e.Handled = true; });
 
                 installedAddons ia = listOfInstalledAddons.FirstOrDefault(x => x.addonName == a.Name && x.addonRepo == a.whichRepo); // Check if this addon is installed.
                 if (ia != null) { // Addon is installed.  
+                    q.allowInstall = Visibility.Hidden;
+                    q.allowDelete = Visibility.Visible;
                     q.installedVersion = $"Installed: {ia.addonVersion} on {ia.installDate.ToShortDateString()}";
                     Version curVersion = new Version(); Version.TryParse(a.FileVersion.Replace("v", ""), out curVersion); // See if it's the version matches.
                     Version installedVersion = new Version(); Version.TryParse(ia.addonVersion.Replace("v", ""), out installedVersion);
@@ -195,27 +234,88 @@ namespace ToSAddonManager {
             ic.ItemsSource = addonDisplayList;
         } // end displayActiveGrid
 
-        private void mouseDoubleClickAction(object sender, MouseButtonEventArgs e) {
+        private void mouseClickInfoAction(object sender, MouseButtonEventArgs e) {
             try {
-                if (e.ChangedButton == MouseButton.Left && e.ClickCount == 2) {
+                if (e.ChangedButton == MouseButton.Left) {
                     if (string.IsNullOrEmpty(tosAMProgramSettings.tosRootDir) || !System.IO.Directory.Exists(tosAMProgramSettings.tosRootDir)) { MessageBox.Show("Please set a valid ToS Program directory"); return; }
-                    Border c = (Border)sender;
-                    addonDisplayData addon = (addonDisplayData)c.DataContext;
+                    Image i = (Image)sender;
+                    addonDisplayData addon = (addonDisplayData)i.DataContext;
                     addonDataFromRepo selectedAddon = listOfAllAddons.FirstOrDefault(x => x.whichRepo == addon.whichRepo && x.Name == addon.name);
                     if (selectedAddon != null) {
                         addonInfo addonInfoWin = new addonInfo { addonData = selectedAddon, installedAddonData = listOfInstalledAddons, rootDir = tosAMProgramSettings.tosRootDir, webConnector = webConnector, Owner = this };
                         addonInfoWin.ShowDialog();
                         // The popup window can update the installed Addon list, so we need to update our List<> and cache file, and then re-process the display.
                         listOfInstalledAddons = addonInfoWin.installedAddonData;
-                        saveInstalledAddonDataToFile();
-                        displayActiveGrid("iToS"); displayActiveGrid("jToS");
+                        saveInstalledAddonDataToFile(); // Writes JSON file.
                         addonInfoWin = null; // WPF should clean up all resources, so this is probably pointless.
                     }
                 }
             } catch (Exception ex) {
-                Common.showError("Canvas DoubleClick", ex);
+                Common.showError("Mouse Click Info Action Error", ex);
+            } finally {
+                displayActiveGrid("iToS"); displayActiveGrid("jToS");
             }
-        } // end mouseDoubleClickAction
+        } // end mouseClickInfoAction
+
+        private async void mouseClickInstallAction(object sender, MouseButtonEventArgs e) {
+            try {
+                if (e.ChangedButton == MouseButton.Left) {
+                    if (string.IsNullOrEmpty(tosAMProgramSettings.tosRootDir) || !System.IO.Directory.Exists(tosAMProgramSettings.tosRootDir)) { MessageBox.Show("Please set a valid ToS Program directory"); return; }
+                    Image i = (Image)sender;
+                    addonDisplayData addon = (addonDisplayData)i.DataContext;
+                    addonDataFromRepo selectedAddon = listOfAllAddons.FirstOrDefault(x => x.whichRepo == addon.whichRepo && x.Name == addon.name);
+                    if (selectedAddon != null) {
+                        MessageBoxResult mbr = MessageBox.Show("Install Addon?", "Install", MessageBoxButton.YesNo);
+                        if (mbr == MessageBoxResult.Yes) {
+                            AddonManagement am = new AddonManagement() { addonData = selectedAddon, installedAddonData = listOfInstalledAddons, rootDir = tosAMProgramSettings.tosRootDir };
+                            Progress<taskProgressMsg> progressMessages = new Progress<taskProgressMsg>(updateForTaskProgress);
+                            bool downloadResultBool = await am.downloadAndSaveAddon(progressMessages, webConnector);
+                            if (!downloadResultBool) { MessageBox.Show("Apparently, there was an error while attempting to download the addon.. :<"); return; }
+                            statusBar1TextBlock.Text = "Updating installed addon list...";
+                            bool updateListResultBool = am.updateInstalledAddonList(0);
+                            if (!updateListResultBool) { MessageBox.Show("Apparently, there was an error while attempting to update the installed addon list.. :<"); return; }
+                            listOfInstalledAddons = am.installedAddonData;
+                            saveInstalledAddonDataToFile();
+                            statusBar1TextBlock.Text = "Install Complete";
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                Common.showError("Mouse Click Install Action Error", ex);
+            } finally {
+                displayActiveGrid("iToS"); displayActiveGrid("jToS");
+            }
+        } // end mouseClickInstallAction
+
+        private void mouseClickUninstallAction(object sender, MouseButtonEventArgs e) {
+            try {
+                if (e.ChangedButton == MouseButton.Left) {
+                    if (string.IsNullOrEmpty(tosAMProgramSettings.tosRootDir) || !System.IO.Directory.Exists(tosAMProgramSettings.tosRootDir)) { MessageBox.Show("Please set a valid ToS Program directory"); return; }
+                    Image i = (Image)sender;
+                    addonDisplayData addon = (addonDisplayData)i.DataContext;
+                    addonDataFromRepo selectedAddon = listOfAllAddons.FirstOrDefault(x => x.whichRepo == addon.whichRepo && x.Name == addon.name);
+                    if (selectedAddon != null) {
+                        MessageBoxResult mbr = MessageBox.Show("Delete Addon?", "Uninstall", MessageBoxButton.YesNo);
+                        if (mbr == MessageBoxResult.Yes) {
+                            MessageBoxResult mb = MessageBox.Show($"Remove associated addon directory?{Environment.NewLine}Addon-specific settings are stored here, so if you plan on reinstalling, select 'No'", "Addon directory", MessageBoxButton.YesNo);
+                            AddonManagement am = new AddonManagement() { addonData = selectedAddon, installedAddonData = listOfInstalledAddons, rootDir = tosAMProgramSettings.tosRootDir };
+                            bool deleteAddonResultBool = am.deleteInstalledAddon(mb == MessageBoxResult.Yes ? true : false);
+                            if (!deleteAddonResultBool) { MessageBox.Show("Apparently, there was an error while attempting to delete the addon.. :<"); return; }
+                            bool updateListResultBool = am.updateInstalledAddonList(1);
+                            if (!updateListResultBool) { MessageBox.Show("Apparently, there was an error while attempting to update the installed addon list.. :<"); return; }
+                            listOfInstalledAddons = am.installedAddonData;
+                            saveInstalledAddonDataToFile();
+                            statusBar1TextBlock.Text = "Uninstall Complete";
+                        }
+                    }
+                }
+            } catch (Exception ex) {
+                Common.showError("Mouse Click Install Action Error", ex);
+            } finally {
+                displayActiveGrid("iToS"); displayActiveGrid("jToS");
+            }
+        } // end mouseClickUninstallAction
+
         #endregion
     }
 } // End Class
