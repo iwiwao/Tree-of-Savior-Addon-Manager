@@ -24,6 +24,7 @@ namespace ToSAddonManager {
         internal List<addonDataFromRepo> listOfAllAddons = new List<addonDataFromRepo>(); // sigh..
         //internal List<addonDataFromRepoAPI> listofAllAddonsAPI = new List<addonDataFromRepoAPI>();
         internal List<installedAddons> listOfInstalledAddons = new List<installedAddons>();
+        internal List<brokenAddons> listOfBrokenAddons = new List<brokenAddons>();
         internal programSettings tosAMProgramSettings = new programSettings();
         static internal readonly HttpClient webConnector = new HttpClient();
 
@@ -46,6 +47,7 @@ namespace ToSAddonManager {
                 if (System.IO.File.Exists("completeAddonList.json")) { listOfAllAddons = JsonConvert.DeserializeObject<List<addonDataFromRepo>>(System.IO.File.ReadAllText("completeAddonList.json")); } // If there is cache data, load it.
                 //if (System.IO.File.Exists("completeAddonListAPI.json")) { listofAllAddonsAPI = JsonConvert.DeserializeObject<List<addonDataFromRepoAPI>>(System.IO.File.ReadAllText("completeAddonListAPI.json")); }
                 if (System.IO.File.Exists("programSettings.json")) { tosAMProgramSettings = JsonConvert.DeserializeObject<programSettings>(System.IO.File.ReadAllText("programSettings.json")); } // If there is a saved settings file, load it.
+                if (System.IO.File.Exists("brokenAddonList.json")) { listOfBrokenAddons = JsonConvert.DeserializeObject<List<brokenAddons>>(System.IO.File.ReadAllText("brokenAddonList.json")); } // You get the idea...
                 displayActiveGrid("iToS"); displayActiveGrid("jToS");
                 if (tosAMProgramSettings.checkForUpdates) { AllowAutoCheck.IsChecked = true; checkForUpdates(null, null); }
             } catch (Exception ex) {
@@ -79,6 +81,7 @@ namespace ToSAddonManager {
                     System.IO.File.AppendAllText("completeAddonList.json", JsonConvert.SerializeObject(listOfAllAddons));
                     //System.IO.File.AppendAllText("completeAddonListAPI.json", JsonConvert.SerializeObject(listofAllAddonsAPI));
                 }
+                System.IO.File.WriteAllText("brokenAddonList.json", JsonConvert.SerializeObject(listOfBrokenAddons));
             } catch (Exception ex) {
                 progressMessages.Report(new taskProgressMsg { currentMsg = "Error in saveCacheDataToFile", showAsPopup = true, exceptionContent = ex });
             }
@@ -104,7 +107,8 @@ namespace ToSAddonManager {
                 (List<addonDataFromRepo>, List<addonDataFromRepoAPI>) jToSCollections = await rCM.callParentUpdateCache(progressMessages, 1); // jToS
                 jToSCollections.Item1.Select(x => { x.whichRepo = "jToS"; return x; }).ToList();
 
-                await rCM.callParentUpdateCache(progressMessages, 2); // Dependencies - does not care about return values.
+                listOfBrokenAddons = await rCM.returnBrokenAddonData(progressMessages); // Download list of broken addons.
+                await rCM.checkAndInstallDependencies(progressMessages); // Dependencies - does not care about return values.
 
                 listOfAllAddons.Clear(); listOfAllAddons = iToSCollections.Item1.Concat(jToSCollections.Item1).ToList();
                 //listofAllAddonsAPI.Clear(); listofAllAddonsAPI = iToSCollections.Item2.Concat(jToSCollections.Item2).ToList();
@@ -238,10 +242,12 @@ namespace ToSAddonManager {
                         q.installStatusColor = Brushes.LightGreen;
                     }
                 }
-
                 string[] aR = a.authorRepo.Split('/'); q.author = $"by {aR[0]}";
                 q.authorRepoUri = new Hyperlink(new Run(a.authorRepo)) { NavigateUri = new Uri($"https://github.com/{a.authorRepo}") };
                 q.authorRepoUri.RequestNavigate += new RequestNavigateEventHandler(delegate (object sender, RequestNavigateEventArgs e) { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(e.Uri.AbsoluteUri)); e.Handled = true; });
+                // No matter what, if this addon was in the broken list, color the background red.  Still allow the user to download, I guess.
+                brokenAddons broken = listOfBrokenAddons.FirstOrDefault(x => x.File == a.File && x.Version == a.FileVersion.Replace("v", "") && x.Author == aR[0]);
+                if (broken != null) { q.installStatusColor = Brushes.Salmon; }
                 addonDisplayList.Add(q);
             }
             ic.ItemsSource = addonDisplayList;
@@ -322,7 +328,7 @@ namespace ToSAddonManager {
                         MessageBoxResult mbr = MessageBox.Show("Delete Addon?", "Uninstall", MessageBoxButton.YesNo);
                         if (mbr == MessageBoxResult.Yes) {
                             MessageBoxResult mb = MessageBox.Show($"Remove associated addon directory?{Environment.NewLine}Addon-specific settings are stored here, so if you plan on reinstalling, select 'No'", "Addon directory", MessageBoxButton.YesNo);
-                            AddonManagement am = new AddonManagement() { addonData = selectedAddon, installedAddonData = listOfInstalledAddons, rootDir = tosAMProgramSettings.tosRootDir};
+                            AddonManagement am = new AddonManagement() { addonData = selectedAddon, installedAddonData = listOfInstalledAddons, rootDir = tosAMProgramSettings.tosRootDir };
                             bool deleteAddonResultBool = am.deleteInstalledAddon(mb == MessageBoxResult.Yes ? true : false);
                             if (!deleteAddonResultBool) { MessageBox.Show("Apparently, there was an error while attempting to delete the addon.. :<"); return; }
                             bool updateListResultBool = am.updateInstalledAddonList(1);

@@ -7,18 +7,18 @@ using System.Net.Http;
 
 namespace ToSAddonManager {
     class repoCacheManagement {
-        internal List<addonDataFromRepo> listOfAllAddons = new List<addonDataFromRepo>();
         internal string rootDir { get; set; }
         internal HttpClient webConnector { get; set; }
 
         internal async Task<(List<addonDataFromRepo>, List<addonDataFromRepoAPI>)> callParentUpdateCache(IProgress<taskProgressMsg> progressMessages, int mode) {
             List<addonDataFromRepo> addonCollection = new List<addonDataFromRepo>();
-            List<addonDataFromRepoAPI> addonAPICollection = new List<addonDataFromRepoAPI>();
+            List<addonDataFromRepoAPI> addonAPICollection = new List<addonDataFromRepoAPI>(); // Not currently using due to API call limits.
             try {
                 switch (mode) {
                     case 0:
                         progressMessages.Report(new taskProgressMsg { currentMsg = "Checking iToS Addons" });
-                        repoParentData iToSRepo = await returnParentRepoData("https://raw.githubusercontent.com/Tree-of-Savior-Addon-Community/Addons/master/addons.json", progressMessages);
+                        //repoParentData iToSRepo = await returnParentRepoData("https://raw.githubusercontent.com/Tree-of-Savior-Addon-Community/Addons/master/addons.json", progressMessages); // Not as up-to-date as JTosAddon
+                        repoParentData iToSRepo = await returnParentRepoData("https://raw.githubusercontent.com/JTosAddon/Addons/itos/managers.json", progressMessages);
                         (List<addonDataFromRepo>, List<addonDataFromRepoAPI>) foo = await returnAddonData(iToSRepo, progressMessages);
                         addonCollection = foo.Item1; addonAPICollection = foo.Item2;
                         break;
@@ -27,10 +27,6 @@ namespace ToSAddonManager {
                         repoParentData jToSRepo = await returnParentRepoData("https://raw.githubusercontent.com/JTosAddon/Addons/master/managers.json", progressMessages);
                         (List<addonDataFromRepo>, List<addonDataFromRepoAPI>) bar = await returnAddonData(jToSRepo, progressMessages);
                         addonCollection = bar.Item1; addonAPICollection = bar.Item2;
-                        break;
-                    case 2:
-                        progressMessages.Report(new taskProgressMsg { currentMsg = "Downloading/Refreshing Dependencies" });
-                        await checkAndInstallDependencies(progressMessages, webConnector);
                         break;
                 }
             } catch (Exception ex) {
@@ -103,34 +99,44 @@ namespace ToSAddonManager {
             return (addons, addonsAPI);
         } // end returnChildRepoData
 
-        internal async Task<bool> checkAndInstallDependencies(IProgress<taskProgressMsg> progressMessages, HttpClient webConnector) {
+        internal async Task<bool> checkAndInstallDependencies(IProgress<taskProgressMsg> progressMessages) {
             try {
                 if (string.IsNullOrEmpty(rootDir)) { return false; }
-                // Currently, we will just overwrite existing files since there isn't recorded version information.  Just three files here, not writing anything fancy.
-                progressMessages.Report(new taskProgressMsg { currentMsg = "Downloading acutil.lua" });
-                HttpResponseMessage webConnectorResponse = await webConnector.GetAsync("https://raw.githubusercontent.com/Tree-of-Savior-Addon-Community/AC-Util/master/src/acutil.lua");
-                webConnectorResponse.EnsureSuccessStatusCode();
-                System.IO.FileStream fs = new System.IO.FileStream($"{rootDir}/release/lua/acutil.lua", System.IO.FileMode.Create);
-                await webConnectorResponse.Content.CopyToAsync(fs); fs.Close(); fs.Dispose();
-                webConnectorResponse.Dispose();
+                progressMessages.Report(new taskProgressMsg { currentMsg = "Downloading/Refreshing Dependencies" });
+                string[] depFiles = { "acutil.lua", "json.lua", "cwapi.lua", "xmlSimple.lua" };
 
-                progressMessages.Report(new taskProgressMsg { currentMsg = "Downloading json.lua" });
-                webConnectorResponse = await webConnector.GetAsync("https://raw.githubusercontent.com/Tree-of-Savior-Addon-Community/AC-Util/master/src/json.lua");
-                webConnectorResponse.EnsureSuccessStatusCode();
-                fs = new System.IO.FileStream($"{rootDir}/release/lua/json.lua", System.IO.FileMode.Create);
-                await webConnectorResponse.Content.CopyToAsync(fs); fs.Close(); fs.Dispose();
-                webConnectorResponse.Dispose();
-
-                progressMessages.Report(new taskProgressMsg { currentMsg = "Downloading cwapi.lua" });
-                webConnectorResponse = await webConnector.GetAsync("https://raw.githubusercontent.com/Tree-of-Savior-Addon-Community/AC-Util/master/src/cwapi.lua");
-                webConnectorResponse.EnsureSuccessStatusCode();
-                fs = new System.IO.FileStream($"{rootDir}/release/lua/cwapi.lua", System.IO.FileMode.Create);
-                await webConnectorResponse.Content.CopyToAsync(fs); fs.Close(); fs.Dispose();
-                webConnectorResponse.Dispose();
+                foreach (string q in depFiles) {
+                    // Currently, we will just overwrite existing files since there isn't recorded version information.
+                    progressMessages.Report(new taskProgressMsg { currentMsg = $"Downloading {q}" });
+                    HttpResponseMessage webConnectorResponse = await webConnector.GetAsync($"https://raw.githubusercontent.com/Tree-of-Savior-Addon-Community/AC-Util/master/src/{q}");
+                    webConnectorResponse.EnsureSuccessStatusCode();
+                    System.IO.FileStream fs = new System.IO.FileStream($"{rootDir}/release/lua/{q}", System.IO.FileMode.Create);
+                    await webConnectorResponse.Content.CopyToAsync(fs); fs.Close(); fs.Dispose();
+                    webConnectorResponse.Dispose();
+                }
             } catch (Exception ex) {
                 progressMessages.Report(new taskProgressMsg { currentMsg = "Dependency Download Error", exceptionContent = ex, showAsPopup = true });
             }
             return true;
         } // end checkAndInstallDependencies
+
+        internal async Task<List<brokenAddons>> returnBrokenAddonData(IProgress<taskProgressMsg> progressMessages) {
+            List<brokenAddons> listOfBrokenAddons = new List<brokenAddons>();
+            try {
+                progressMessages.Report(new taskProgressMsg { currentMsg = "Checking Broken Addons" });
+                HttpResponseMessage webConnectorResponse = await webConnector.GetAsync("https://raw.githubusercontent.com/JTosAddon/Addons/master/broken-addons.json");
+                if (webConnectorResponse.IsSuccessStatusCode) {
+                    BrokenAddonsData tmpList = new BrokenAddonsData();
+                    string resultString = await webConnectorResponse.Content.ReadAsStringAsync();
+                    webConnectorResponse.Dispose();
+                    tmpList = JsonConvert.DeserializeObject<BrokenAddonsData>(resultString);
+                    listOfBrokenAddons = tmpList.Addons;
+                }
+                webConnectorResponse.Dispose();
+            } catch (Exception ex) {
+                progressMessages.Report(new taskProgressMsg { currentMsg = "Error in returnBrokenAddonData", showAsPopup = true, exceptionContent = ex });
+            }
+            return listOfBrokenAddons;
+        } // end returnBrokenAddonData
     }
 }

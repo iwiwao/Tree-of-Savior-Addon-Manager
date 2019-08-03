@@ -81,6 +81,18 @@ namespace ToSAddonManager {
         public bool SiteAdmin { get; set; }
     }
 
+    // Broken Addon Structure
+    public partial class BrokenAddonsData {
+        public long Tosversion { get; set; }
+        public List<brokenAddons> Addons { get; set; }
+    }
+
+    public partial class brokenAddons {
+        public string File { get; set; }
+        public string Version { get; set; }
+        public string Author { get; set; }
+    }
+
     // Addon Repo Data from addons.json
     public class addonDataFromRepo {
         public string Name { get; set; }
