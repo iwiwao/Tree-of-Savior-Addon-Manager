@@ -72,6 +72,7 @@ namespace ToSAddonManager {
                     actionButton.Content = "Uninstall"; actionButton.Background = Brushes.LightSalmon;
                     statusBar1TextBlock.Text = "Install Complete";
                 } else if (actionButton.Content.ToString() == "Uninstall") {
+                    if (Common.checkForToSProcess()) { MessageBox.Show("Cannot uninstall addons while ToS is running.", "ToS Running", MessageBoxButton.OK, MessageBoxImage.Exclamation); return; }
                     MessageBoxResult mb = MessageBox.Show($"Remove associated addon directory?{Environment.NewLine}Addon-specific settings are stored here, so if you plan on reinstalling, select 'No'", "Addon directory", MessageBoxButton.YesNoCancel);
                     if (mb == MessageBoxResult.Cancel) { return; }
                     bool deleteAddonResultBool = am.deleteInstalledAddon(mb == MessageBoxResult.Yes ? true : false);

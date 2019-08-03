@@ -203,6 +203,9 @@ namespace ToSAddonManager {
             }
         }
 
+        private void FilterGroupCheckChanged(object sender, RoutedEventArgs e) {
+            displayActiveGrid("iToS"); displayActiveGrid("jToS");
+        } // end FilterGroupCheckChanged
         #endregion
 
         #region "WrapPanel Setup and Control"
@@ -215,20 +218,30 @@ namespace ToSAddonManager {
 
             List<addonDisplayData> addonDisplayList = new List<addonDisplayData>();
             foreach (addonDataFromRepo a in filteredAddonList) {
-                addonDisplayData q = new addonDisplayData() { name = a.Name, availableVersion = a.FileVersion, description = a.Description, installStatusColor = Brushes.White, whichRepo = a.whichRepo, allowInstall = Visibility.Visible, allowDelete = Visibility.Hidden };
-                string[] aR = a.authorRepo.Split('/'); q.author = $"by {aR[0]}";
-                q.authorRepoUri = new Hyperlink(new Run(a.authorRepo)) { NavigateUri = new Uri($"https://github.com/{a.authorRepo}") };
-                q.authorRepoUri.RequestNavigate += new RequestNavigateEventHandler(delegate (object sender, RequestNavigateEventArgs e) { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(e.Uri.AbsoluteUri)); e.Handled = true; });
-
                 installedAddons ia = listOfInstalledAddons.FirstOrDefault(x => x.addonName == a.Name && x.addonRepo == a.whichRepo); // Check if this addon is installed.
-                if (ia != null) { // Addon is installed.  
+                if (ia == null && (filterGroupInstalled.IsChecked == true || filterGroupUpdatable.IsChecked == true)) { continue; } // Only displaying installed or updatable addons.
+                addonDisplayData q = new addonDisplayData() { name = a.Name, availableVersion = a.FileVersion, description = a.Description, installStatusColor = Brushes.White, whichRepo = a.whichRepo, allowInstall = Visibility.Visible, allowDelete = Visibility.Hidden };
+
+                if (ia != null) { // Addon is installed.
                     q.allowInstall = Visibility.Hidden;
                     q.allowDelete = Visibility.Visible;
                     q.installedVersion = $"Installed: {ia.addonVersion} on {ia.installDate.ToShortDateString()}";
                     Version curVersion = new Version(); Version.TryParse(a.FileVersion.Replace("v", ""), out curVersion); // See if it's the version matches.
                     Version installedVersion = new Version(); Version.TryParse(ia.addonVersion.Replace("v", ""), out installedVersion);
-                    q.installStatusColor = curVersion.CompareTo(installedVersion) > 0 ? Brushes.LightYellow : Brushes.LightGreen;
+                    int verComp = curVersion.CompareTo(installedVersion);
+                    if (verComp == 0 && filterGroupUpdatable.IsChecked == true) { // Only displaying updatable addons.
+                        continue;
+                    } else if (verComp > 0) { // Addon is updatable.
+                        q.installStatusColor = Brushes.Yellow;
+                        q.allowInstall = Visibility.Visible;
+                    } else {
+                        q.installStatusColor = Brushes.LightGreen;
+                    }
                 }
+
+                string[] aR = a.authorRepo.Split('/'); q.author = $"by {aR[0]}";
+                q.authorRepoUri = new Hyperlink(new Run(a.authorRepo)) { NavigateUri = new Uri($"https://github.com/{a.authorRepo}") };
+                q.authorRepoUri.RequestNavigate += new RequestNavigateEventHandler(delegate (object sender, RequestNavigateEventArgs e) { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(e.Uri.AbsoluteUri)); e.Handled = true; });
                 addonDisplayList.Add(q);
             }
             ic.ItemsSource = addonDisplayList;
@@ -265,9 +278,19 @@ namespace ToSAddonManager {
                     addonDisplayData addon = (addonDisplayData)i.DataContext;
                     addonDataFromRepo selectedAddon = listOfAllAddons.FirstOrDefault(x => x.whichRepo == addon.whichRepo && x.Name == addon.name);
                     if (selectedAddon != null) {
-                        MessageBoxResult mbr = MessageBox.Show("Install Addon?", "Install", MessageBoxButton.YesNo);
-                        if (mbr == MessageBoxResult.Yes) {
-                            AddonManagement am = new AddonManagement() { addonData = selectedAddon, installedAddonData = listOfInstalledAddons, rootDir = tosAMProgramSettings.tosRootDir };
+                        AddonManagement am = new AddonManagement() { addonData = selectedAddon, installedAddonData = listOfInstalledAddons, rootDir = tosAMProgramSettings.tosRootDir };
+                        installedAddons iA = listOfInstalledAddons.FirstOrDefault(x => x.addonRepo == addon.whichRepo && x.addonName == addon.name);
+                        bool allowContinue = false;
+                        if (iA != null) { // Allow Update from here as well.
+                            if (MessageBox.Show("Update Addon?", "Update", MessageBoxButton.YesNo) == MessageBoxResult.Yes) {
+                                allowContinue = true;
+                                bool updateListResultBool = am.updateInstalledAddonList(1); // Remove the addon from the installed list.
+                                if (!updateListResultBool) { MessageBox.Show("Apparently, there was an error while attempting to update the installed addon list.. :<"); return; }
+                            }
+                        } else {
+                            if (MessageBox.Show("Install Addon?", "Install", MessageBoxButton.YesNo) == MessageBoxResult.Yes) { allowContinue = true; }
+                        }
+                        if (allowContinue) {
                             Progress<taskProgressMsg> progressMessages = new Progress<taskProgressMsg>(updateForTaskProgress);
                             bool downloadResultBool = await am.downloadAndSaveAddon(progressMessages, webConnector);
                             if (!downloadResultBool) { MessageBox.Show("Apparently, there was an error while attempting to download the addon.. :<"); return; }
@@ -291,6 +314,7 @@ namespace ToSAddonManager {
             try {
                 if (e.ChangedButton == MouseButton.Left) {
                     if (string.IsNullOrEmpty(tosAMProgramSettings.tosRootDir) || !System.IO.Directory.Exists(tosAMProgramSettings.tosRootDir)) { MessageBox.Show("Please set a valid ToS Program directory"); return; }
+                    if (Common.checkForToSProcess()) { MessageBox.Show("Cannot uninstall addons while ToS is running.", "ToS Running", MessageBoxButton.OK, MessageBoxImage.Exclamation); return; }
                     Image i = (Image)sender;
                     addonDisplayData addon = (addonDisplayData)i.DataContext;
                     addonDataFromRepo selectedAddon = listOfAllAddons.FirstOrDefault(x => x.whichRepo == addon.whichRepo && x.Name == addon.name);
@@ -298,7 +322,7 @@ namespace ToSAddonManager {
                         MessageBoxResult mbr = MessageBox.Show("Delete Addon?", "Uninstall", MessageBoxButton.YesNo);
                         if (mbr == MessageBoxResult.Yes) {
                             MessageBoxResult mb = MessageBox.Show($"Remove associated addon directory?{Environment.NewLine}Addon-specific settings are stored here, so if you plan on reinstalling, select 'No'", "Addon directory", MessageBoxButton.YesNo);
-                            AddonManagement am = new AddonManagement() { addonData = selectedAddon, installedAddonData = listOfInstalledAddons, rootDir = tosAMProgramSettings.tosRootDir };
+                            AddonManagement am = new AddonManagement() { addonData = selectedAddon, installedAddonData = listOfInstalledAddons, rootDir = tosAMProgramSettings.tosRootDir};
                             bool deleteAddonResultBool = am.deleteInstalledAddon(mb == MessageBoxResult.Yes ? true : false);
                             if (!deleteAddonResultBool) { MessageBox.Show("Apparently, there was an error while attempting to delete the addon.. :<"); return; }
                             bool updateListResultBool = am.updateInstalledAddonList(1);
@@ -315,7 +339,6 @@ namespace ToSAddonManager {
                 displayActiveGrid("iToS"); displayActiveGrid("jToS");
             }
         } // end mouseClickUninstallAction
-
         #endregion
     }
 } // End Class

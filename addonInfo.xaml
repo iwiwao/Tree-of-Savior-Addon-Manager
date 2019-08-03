@@ -23,8 +23,8 @@
     </Window.Resources>
 
     <DockPanel x:Name="infoDocPanel" LastChildFill="False">
-        <StatusBar x:Name="statusBar1" Height="35" Background="{x:Null}" BorderBrush="Black" DockPanel.Dock="Bottom" VerticalAlignment="Center">
-            <TextBlock x:Name="statusBar1TextBlock" Height="30" FontSize="14" VerticalAlignment="Center"/>
+        <StatusBar x:Name="statusBar1" Height="35" Background="{x:Null}" BorderBrush="Black" DockPanel.Dock="Bottom">
+            <TextBlock x:Name="statusBar1TextBlock" FontSize="14" VerticalAlignment="Center" Margin="5,0,0,0"/>
         </StatusBar>
 
         <Grid Margin="10" Width="750" >
