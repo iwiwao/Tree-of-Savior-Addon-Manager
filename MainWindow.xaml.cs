@@ -22,9 +22,9 @@ namespace ToSAddonManager {
     /// </summary>
     public partial class MainWindow : Window {
         internal List<addonDataFromRepo> listOfAllAddons = new List<addonDataFromRepo>(); // sigh..
-        //internal List<addonDataFromRepoAPI> listofAllAddonsAPI = new List<addonDataFromRepoAPI>();
         internal List<installedAddons> listOfInstalledAddons = new List<installedAddons>();
         internal List<brokenAddons> listOfBrokenAddons = new List<brokenAddons>();
+        internal List<addonInstallerOverride> listOfAddonOverrides = new List<addonInstallerOverride>();
         internal programSettings tosAMProgramSettings = new programSettings();
         static internal readonly HttpClient webConnector = new HttpClient();
 
@@ -45,9 +45,9 @@ namespace ToSAddonManager {
 
                 if (System.IO.File.Exists("installedAddons.json")) { listOfInstalledAddons = JsonConvert.DeserializeObject<List<installedAddons>>(System.IO.File.ReadAllText("installedAddons.json")); } // If there is saved installed addon list, load it.
                 if (System.IO.File.Exists("completeAddonList.json")) { listOfAllAddons = JsonConvert.DeserializeObject<List<addonDataFromRepo>>(System.IO.File.ReadAllText("completeAddonList.json")); } // If there is cache data, load it.
-                //if (System.IO.File.Exists("completeAddonListAPI.json")) { listofAllAddonsAPI = JsonConvert.DeserializeObject<List<addonDataFromRepoAPI>>(System.IO.File.ReadAllText("completeAddonListAPI.json")); }
                 if (System.IO.File.Exists("programSettings.json")) { tosAMProgramSettings = JsonConvert.DeserializeObject<programSettings>(System.IO.File.ReadAllText("programSettings.json")); } // If there is a saved settings file, load it.
                 if (System.IO.File.Exists("brokenAddonList.json")) { listOfBrokenAddons = JsonConvert.DeserializeObject<List<brokenAddons>>(System.IO.File.ReadAllText("brokenAddonList.json")); } // You get the idea...
+                if (System.IO.File.Exists("addonOverrides.json")) { listOfAddonOverrides = JsonConvert.DeserializeObject<List<addonInstallerOverride>>(System.IO.File.ReadAllText("addonOverrides.json")); } 
                 displayActiveGrid("iToS"); displayActiveGrid("jToS");
                 if (tosAMProgramSettings.checkForUpdates) { AllowAutoCheck.IsChecked = true; checkForUpdates(null, null); }
             } catch (Exception ex) {
@@ -55,9 +55,17 @@ namespace ToSAddonManager {
             }
         } // end MainWindow_Loaded
 
+        private void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e) {
+            try {
+                System.IO.File.WriteAllText("programSettings.json", JsonConvert.SerializeObject(tosAMProgramSettings));
+            } catch (Exception ex) {
+                Common.showError("MainWindow Closing Error", ex);
+            }
+        } // end MainWindow_Closing
+
         private void updateForTaskProgress(taskProgressMsg progress) {
             statusBar1TextBlock.Text = progress.currentMsg;
-            if (progress.showAsPopup) { Common.showError("Error", progress.exceptionContent); }
+            if (progress.showAsPopup) { Common.showError(progress.currentMsg, progress.exceptionContent); }
         } // end updateForTaskProgress
 
         private void saveInstalledAddonDataToFile() {
@@ -76,12 +84,11 @@ namespace ToSAddonManager {
             try {
                 if (purgeFile) {
                     System.IO.File.WriteAllText("completeAddonList.json", JsonConvert.SerializeObject(listOfAllAddons));
-                    //System.IO.File.WriteAllText("completeAddonListAPI.json", JsonConvert.SerializeObject(listofAllAddonsAPI));
                 } else {
                     System.IO.File.AppendAllText("completeAddonList.json", JsonConvert.SerializeObject(listOfAllAddons));
-                    //System.IO.File.AppendAllText("completeAddonListAPI.json", JsonConvert.SerializeObject(listofAllAddonsAPI));
                 }
                 System.IO.File.WriteAllText("brokenAddonList.json", JsonConvert.SerializeObject(listOfBrokenAddons));
+                System.IO.File.WriteAllText("addonOverrides.json", JsonConvert.SerializeObject(listOfAddonOverrides));
             } catch (Exception ex) {
                 progressMessages.Report(new taskProgressMsg { currentMsg = "Error in saveCacheDataToFile", showAsPopup = true, exceptionContent = ex });
             }
@@ -99,21 +106,24 @@ namespace ToSAddonManager {
                 statusBar1TextBlock.Text = "Started Cache Update";
                 Progress<taskProgressMsg> progressMessages = new Progress<taskProgressMsg>(updateForTaskProgress); // Will contain the progress messages from each function.
 
+                if (System.IO.File.Exists("completeAddonList.json")) { tosAMProgramSettings.previousUpdateDateStampUTC = new System.IO.FileInfo("completeAddonList.json").LastWriteTimeUtc; } else { tosAMProgramSettings.previousUpdateDateStampUTC = DateTime.MinValue; } // Store previous update time for "What's new" option.
+
                 repoCacheManagement rCM = new repoCacheManagement() { rootDir = tosAMProgramSettings.tosRootDir, webConnector = webConnector };
 
-                (List<addonDataFromRepo>, List<addonDataFromRepoAPI>) iToSCollections = await rCM.callParentUpdateCache(progressMessages, 0); // iToS 
-                iToSCollections.Item1.Select(x => { x.whichRepo = "iToS"; return x; }).ToList();
+                List<addonDataFromRepo> iToSCollections = await rCM.callParentUpdateCache(progressMessages, 0); // iToS 
+                iToSCollections.Select(x => { x.whichRepo = "iToS"; return x; }).ToList();
 
-                (List<addonDataFromRepo>, List<addonDataFromRepoAPI>) jToSCollections = await rCM.callParentUpdateCache(progressMessages, 1); // jToS
-                jToSCollections.Item1.Select(x => { x.whichRepo = "jToS"; return x; }).ToList();
+                List<addonDataFromRepo> jToSCollections = await rCM.callParentUpdateCache(progressMessages, 1); // jToS
+                jToSCollections.Select(x => { x.whichRepo = "jToS"; return x; }).ToList();
 
                 listOfBrokenAddons = await rCM.returnBrokenAddonData(progressMessages); // Download list of broken addons.
+                listOfAddonOverrides = await rCM.returnAddonInstallerOverride(progressMessages); // Return manually-maintained list of addon overrides.
                 await rCM.checkAndInstallDependencies(progressMessages); // Dependencies - does not care about return values.
 
-                listOfAllAddons.Clear(); listOfAllAddons = iToSCollections.Item1.Concat(jToSCollections.Item1).ToList();
-                //listofAllAddonsAPI.Clear(); listofAllAddonsAPI = iToSCollections.Item2.Concat(jToSCollections.Item2).ToList();
+                listOfAllAddons.Clear(); listOfAllAddons = iToSCollections.Concat(jToSCollections).ToList();
 
                 saveCacheDataToFile(true, progressMessages);
+                statusBar1TextBlock.Text = "Completed all Cache Update functions.";
 
                 displayActiveGrid("iToS"); displayActiveGrid("jToS");  // Update the tabs.
             } catch (Exception ex) {
@@ -129,7 +139,7 @@ namespace ToSAddonManager {
             if (fd.ShowDialog() == true) {
                 string fullPath = System.IO.Path.GetDirectoryName(fd.FileName);
                 if (System.IO.Directory.Exists(fullPath + "/addons") && System.IO.Directory.Exists(fullPath + "/data")) {
-                    tosAMProgramSettings.tosRootDir = fullPath; System.IO.File.WriteAllText("programSettings.json", JsonConvert.SerializeObject(tosAMProgramSettings));
+                    tosAMProgramSettings.tosRootDir = fullPath; 
                 } else {
                     MessageBox.Show("Tree of Savior directory selection was not valid");
                 }
@@ -165,7 +175,6 @@ namespace ToSAddonManager {
         private void allowAutomaticUpdatesCheckChanged(object sender, RoutedEventArgs e) {
             try {
                 tosAMProgramSettings.checkForUpdates = AllowAutoCheck.IsChecked;
-                System.IO.File.WriteAllText("programSettings.json", JsonConvert.SerializeObject(tosAMProgramSettings));
             } catch (Exception ex) {
                 Common.showError("Allow Automatic Update Check Changed Error", ex);
             }
@@ -222,10 +231,15 @@ namespace ToSAddonManager {
 
             List<addonDisplayData> addonDisplayList = new List<addonDisplayData>();
             foreach (addonDataFromRepo a in filteredAddonList) {
+                if (filterGroupWhatsNew.IsChecked == true && a.releaseDate < tosAMProgramSettings.previousUpdateDateStampUTC) { continue; } // Only displaying addons that have been updated/added since the last cache update.
                 installedAddons ia = listOfInstalledAddons.FirstOrDefault(x => x.addonName == a.Name && x.addonRepo == a.whichRepo); // Check if this addon is installed.
                 if (ia == null && (filterGroupInstalled.IsChecked == true || filterGroupUpdatable.IsChecked == true)) { continue; } // Only displaying installed or updatable addons.
-                addonDisplayData q = new addonDisplayData() { name = a.Name, availableVersion = a.FileVersion, description = a.Description, installStatusColor = Brushes.White, whichRepo = a.whichRepo, allowInstall = Visibility.Visible, allowDelete = Visibility.Hidden };
 
+                addonDisplayData q = new addonDisplayData() { name = a.Name, description = a.Description, installStatusColor = Brushes.White, whichRepo = a.whichRepo, allowInstall = Visibility.Visible, allowDelete = Visibility.Hidden };
+
+                string releaseDate = "during the big bang."; // Try to display the release date with the 'available version tag.
+                if (a.releaseDate != DateTimeOffset.MinValue) { releaseDate = $"on {a.releaseDate.ToLocalTime().ToString("MM/dd/yyyy")}"; }
+                q.availableVersion = $"{a.FileVersion} released {releaseDate}";
                 if (ia != null) { // Addon is installed.
                     q.allowInstall = Visibility.Hidden;
                     q.allowDelete = Visibility.Visible;
@@ -284,7 +298,7 @@ namespace ToSAddonManager {
                     addonDisplayData addon = (addonDisplayData)i.DataContext;
                     addonDataFromRepo selectedAddon = listOfAllAddons.FirstOrDefault(x => x.whichRepo == addon.whichRepo && x.Name == addon.name);
                     if (selectedAddon != null) {
-                        AddonManagement am = new AddonManagement() { addonData = selectedAddon, installedAddonData = listOfInstalledAddons, rootDir = tosAMProgramSettings.tosRootDir };
+                        AddonManagement am = new AddonManagement() { addonData = selectedAddon, installedAddonData = listOfInstalledAddons, rootDir = tosAMProgramSettings.tosRootDir, addonInstallerOverrides = listOfAddonOverrides };
                         installedAddons iA = listOfInstalledAddons.FirstOrDefault(x => x.addonRepo == addon.whichRepo && x.addonName == addon.name);
                         bool allowContinue = false;
                         if (iA != null) { // Allow Update from here as well.
@@ -328,7 +342,7 @@ namespace ToSAddonManager {
                         MessageBoxResult mbr = MessageBox.Show("Delete Addon?", "Uninstall", MessageBoxButton.YesNo);
                         if (mbr == MessageBoxResult.Yes) {
                             MessageBoxResult mb = MessageBox.Show($"Remove associated addon directory?{Environment.NewLine}Addon-specific settings are stored here, so if you plan on reinstalling, select 'No'", "Addon directory", MessageBoxButton.YesNo);
-                            AddonManagement am = new AddonManagement() { addonData = selectedAddon, installedAddonData = listOfInstalledAddons, rootDir = tosAMProgramSettings.tosRootDir };
+                            AddonManagement am = new AddonManagement() { addonData = selectedAddon, installedAddonData = listOfInstalledAddons, rootDir = tosAMProgramSettings.tosRootDir, addonInstallerOverrides = listOfAddonOverrides };
                             bool deleteAddonResultBool = am.deleteInstalledAddon(mb == MessageBoxResult.Yes ? true : false);
                             if (!deleteAddonResultBool) { MessageBox.Show("Apparently, there was an error while attempting to delete the addon.. :<"); return; }
                             bool updateListResultBool = am.updateInstalledAddonList(1);

@@ -22,63 +22,10 @@ namespace ToSAddonManager {
         public string Repo { get; set; }
     }
 
-    // Addon Repo Data Structure - Github API JSON
+    // Addon Repo Data Structure - Github API JSON (Only used for update checker now)
     public partial class addonDataFromRepoAPI {
-        public Uri Url { get; set; }
-        public Uri AssetsUrl { get; set; }
-        public string UploadUrl { get; set; }
-        public Uri HtmlUrl { get; set; }
-        public long Id { get; set; }
-        public string NodeId { get; set; }
-        public string TagName { get; set; }
-        public string TargetCommitish { get; set; }
         public string Name { get; set; }
-        public bool Draft { get; set; }
-        public Author Author { get; set; }
-        public bool Prerelease { get; set; }
-        public DateTimeOffset CreatedAt { get; set; }
-        public DateTimeOffset PublishedAt { get; set; }
-        public List<Asset> Assets { get; set; }
-        public Uri TarballUrl { get; set; }
-        public Uri ZipballUrl { get; set; }
         public string Body { get; set; }
-    }
-
-    public partial class Asset {
-        public Uri Url { get; set; }
-        public long Id { get; set; }
-        public string NodeId { get; set; }
-        public string Name { get; set; }
-        public object Label { get; set; }
-        public Author Uploader { get; set; }
-        public string ContentType { get; set; }
-        public string State { get; set; }
-        public long Size { get; set; }
-        public long DownloadCount { get; set; }
-        public DateTimeOffset CreatedAt { get; set; }
-        public DateTimeOffset UpdatedAt { get; set; }
-        public Uri BrowserDownloadUrl { get; set; }
-    }
-
-    public partial class Author {
-        public string Login { get; set; }
-        public long Id { get; set; }
-        public string NodeId { get; set; }
-        public Uri AvatarUrl { get; set; }
-        public string GravatarId { get; set; }
-        public Uri Url { get; set; }
-        public Uri HtmlUrl { get; set; }
-        public Uri FollowersUrl { get; set; }
-        public string FollowingUrl { get; set; }
-        public string GistsUrl { get; set; }
-        public string StarredUrl { get; set; }
-        public Uri SubscriptionsUrl { get; set; }
-        public Uri OrganizationsUrl { get; set; }
-        public Uri ReposUrl { get; set; }
-        public string EventsUrl { get; set; }
-        public Uri ReceivedEventsUrl { get; set; }
-        public string Type { get; set; }
-        public bool SiteAdmin { get; set; }
     }
 
     // Broken Addon Structure
@@ -106,12 +53,15 @@ namespace ToSAddonManager {
         public string tagsFlat { get; set; }
         public string authorRepo { get; set; }
         public string whichRepo { get; set; }
+        public DateTimeOffset releaseDate { get; set; }
+        public string repoPicURL { get; set; }
         public string filterCheck { get { return string.Concat(Name, File, Description, tagsFlat, authorRepo).ToLower(); } }
     }
 
     public class programSettings {
         public string tosRootDir { get; set; }
         public bool checkForUpdates { get; set; }
+        public DateTime previousUpdateDateStampUTC { get; set; }
     }
 
     public class installedAddons {
@@ -121,6 +71,13 @@ namespace ToSAddonManager {
         public string addonRepo { get; set; }
         public string addonAuthorRepo { get; set; }
         public DateTime installDate { get; set; }
+    }
+
+    public class addonInstallerOverride {
+        public string filename { get; set; }
+        public string fileVersion { get; set; }
+        public string whichRepo { get; set; }
+        public string addonDirectoryOverride { get; set; }
     }
 
     public class addonDisplayData {
@@ -135,4 +92,56 @@ namespace ToSAddonManager {
         public System.Windows.Visibility allowInstall { get; set; }
         public System.Windows.Visibility allowDelete { get; set; }
     }
+
+    #region "XML ATOM -> JSON"
+    internal class atomDataResult {
+        internal string title { get; set; }
+        internal string tag { get; set; }
+        internal string repoPicURL { get; set; }
+        internal DateTimeOffset updated { get; set; }
+    }
+
+    public partial class atomConversion {
+        public Feed Feed { get; set; }
+    }
+
+    public partial class Feed {
+        public string Id { get; set; }
+        public string Title { get; set; }
+        public DateTimeOffset Updated { get; set; }
+
+        [Newtonsoft.Json.JsonConverter(typeof(SingleOrArrayConverter<Entry>))]
+        public List<Entry> Entry { get; set; }
+    }
+
+    public partial class Entry {
+        public string Id { get; set; }
+        public DateTimeOffset Updated { get; set; }
+        public string Title { get; set; }
+        [Newtonsoft.Json.JsonProperty("media:thumbnail")]
+        public MediaThumbnail MediaThumbnail { get; set; }
+    }
+
+    public partial class MediaThumbnail {
+        [Newtonsoft.Json.JsonProperty("@url")]
+        public string Url { get; set; }
+    }
+
+    class SingleOrArrayConverter<T> : Newtonsoft.Json.JsonConverter {
+        public override bool CanConvert(Type objectType) {
+            return (objectType == typeof(List<T>));
+        }
+        public override object ReadJson(Newtonsoft.Json.JsonReader reader, Type objectType, object existingValue, Newtonsoft.Json.JsonSerializer serializer) {
+            Newtonsoft.Json.Linq.JToken token = Newtonsoft.Json.Linq.JToken.Load(reader);
+            if (token.Type == Newtonsoft.Json.Linq.JTokenType.Array) { return token.ToObject<List<T>>(); }
+            return new List<T> { token.ToObject<T>() };
+        }
+        public override bool CanWrite {
+            get { return false; }
+        }
+        public override void WriteJson(Newtonsoft.Json.JsonWriter writer, object value, Newtonsoft.Json.JsonSerializer serializer) {
+            throw new NotImplementedException();
+        }
+    }
+    #endregion
 }

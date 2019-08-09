@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ToSAddonManager"
         mc:Ignorable="d"
-        Title="ToS Addon Manager" Height="650" Width="1191.646" WindowStartupLocation="CenterScreen" Loaded="MainWindow_Loaded">
+        Title="ToS Addon Manager" Height="650" Width="1191.646" WindowStartupLocation="CenterScreen" Loaded="MainWindow_Loaded" Closing="MainWindow_Closing" Icon="{DynamicResource ProgramIcon}">
     <Window.Resources>
         <DataTemplate x:Key="storedTemplate">
             <Border Background="{Binding installStatusColor}" BorderBrush="Black" BorderThickness="1" Margin="5" CornerRadius="5">
@@ -85,12 +85,13 @@
         
         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,10,0">
             <TextBlock x:Name="filterTextBlock" Text="Filter: " VerticalAlignment="Top" FontSize="18" HorizontalAlignment="Right" Width="48"/>
-            <TextBox x:Name="filterTB" Height="30" VerticalAlignment="Top" KeyDown="filterTBKeyDownHandler" FontSize="18" HorizontalAlignment="Right" Width="276"/>
+            <TextBox x:Name="filterTB" Height="30" VerticalAlignment="Top" KeyDown="filterTBKeyDownHandler" FontSize="18" HorizontalAlignment="Right" Width="385"/>
         </StackPanel>
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,30,0">
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,20,0">
             <RadioButton x:Name="filterGroupAll" GroupName="filterGroup" Content="All" FontSize="18" IsChecked="True"  VerticalContentAlignment="Center"  Checked="FilterGroupCheckChanged"/>
             <RadioButton x:Name="filterGroupInstalled" GroupName="filterGroup" Content="Installed" FontSize="18" VerticalContentAlignment="Center" Margin="10,0,10,0" Checked="FilterGroupCheckChanged"/>
-            <RadioButton x:Name="filterGroupUpdatable" GroupName="filterGroup" Content="Updatable" FontSize="18"  VerticalContentAlignment="Center"  Checked="FilterGroupCheckChanged"/>
+            <RadioButton x:Name="filterGroupUpdatable" GroupName="filterGroup" Content="Updatable" FontSize="18"  VerticalContentAlignment="Center" Margin="0,0,10,0"  Checked="FilterGroupCheckChanged"/>
+            <RadioButton x:Name="filterGroupWhatsNew" GroupName="filterGroup" Content="What's New" FontSize="18"  VerticalContentAlignment="Center"  Checked="FilterGroupCheckChanged"/>
         </StackPanel>
 
         <StatusBar x:Name="statusBar1" Height="35" Background="{x:Null}" BorderBrush="Black" DockPanel.Dock="Bottom">

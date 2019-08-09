@@ -8,6 +8,7 @@ namespace ToSAddonManager {
     class AddonManagement {
         internal List<installedAddons> installedAddonData { get; set; }
         internal addonDataFromRepo addonData { get; set; }
+        internal List<addonInstallerOverride> addonInstallerOverrides { get; set; }
         internal string rootDir { get; set; }
 
         internal async Task<bool> downloadAndSaveAddon(IProgress<taskProgressMsg> progressMessages, HttpClient webConnector) {
@@ -20,7 +21,14 @@ namespace ToSAddonManager {
                 await webConnectorRespoonse.Content.CopyToAsync(fs); fs.Close(); fs.Dispose();
                 webConnectorRespoonse.Dispose();
                 progressMessages.Report(new taskProgressMsg { currentMsg = "Addon saved..." });
-                if (!System.IO.Directory.Exists($"{rootDir}/addons/{addonData.File}")) { System.IO.Directory.CreateDirectory($"{rootDir}/addons/{addonData.File}"); }
+
+                string localAddonDataDir = addonData.File;
+                addonInstallerOverride addonOverride = addonInstallerOverrides.FirstOrDefault(x => x.filename == addonData.File && x.fileVersion == addonData.FileVersion && x.whichRepo == addonData.whichRepo);
+                if (addonOverride != null) {
+                    if (!string.IsNullOrEmpty(addonOverride.addonDirectoryOverride)) { localAddonDataDir = addonOverride.addonDirectoryOverride; } // Currently, only have a directory override
+                }
+
+                if (!System.IO.Directory.Exists($"{rootDir}/addons/{localAddonDataDir}")) { System.IO.Directory.CreateDirectory($"{rootDir}/addons/{localAddonDataDir}"); }
                 return true;
             } catch (Exception ex) {
                 progressMessages.Report(new taskProgressMsg { currentMsg = "Download and Save Addon Error", exceptionContent = ex, showAsPopup = true });
@@ -30,8 +38,13 @@ namespace ToSAddonManager {
 
         internal bool deleteInstalledAddon(bool purgeDirectory) {
             try {
+                if (purgeDirectory) {
+                    string localAddonDataDir = addonData.File;
+                    addonInstallerOverride addonOverride = addonInstallerOverrides.FirstOrDefault(x => x.filename == addonData.File && x.fileVersion == addonData.FileVersion && x.whichRepo == addonData.whichRepo);
+                    if (addonOverride != null) { if (!string.IsNullOrEmpty(addonOverride.addonDirectoryOverride)) { localAddonDataDir = addonOverride.addonDirectoryOverride; } }
+                    if (System.IO.Directory.Exists($"{rootDir}/addons/{localAddonDataDir}")) { System.IO.Directory.Delete($"{rootDir}/addons/{localAddonDataDir}", true); }
+                }
                 string fullAddonFile = $"_{addonData.File}-{addonData.Unicode}-{addonData.FileVersion}.{addonData.Extension}";
-                if (purgeDirectory && System.IO.Directory.Exists($"{rootDir}/addons/{addonData.File}")) { System.IO.Directory.Delete($"{rootDir}/addons/{addonData.File}", true); }
                 if (System.IO.File.Exists($"{rootDir}/data/{fullAddonFile}")) { System.IO.File.Delete($"{rootDir}/data/{fullAddonFile}"); }
                 return true;
             } catch (Exception ex) {

@@ -1,16 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using System.Net.Http;
 
 namespace ToSAddonManager {
@@ -20,6 +14,7 @@ namespace ToSAddonManager {
     public partial class addonInfo : Window {
         internal List<installedAddons> installedAddonData { get; set; }
         internal addonDataFromRepo addonData { get; set; }
+        internal List<addonInstallerOverride> addonInstallerOverrides { get; set; }
         internal string rootDir { get; set; }
         internal HttpClient webConnector { get; set; }
 
@@ -36,7 +31,7 @@ namespace ToSAddonManager {
                 // Set basic addon info.
                 nameValue.Text = addonData.Name;
                 fileValue.Text = addonData.File;
-                versionValue.Text = addonData.FileVersion;
+                versionValue.Text = $"{addonData.FileVersion} released {addonData.releaseDate.ToLocalTime().ToString("MM/dd/yyyy")}";
                 tagsValue.Text = addonData.tagsFlat;
                 descriptionValue.Text = addonData.Description;
                 descriptionValue.TextWrapping = TextWrapping.Wrap;
@@ -49,7 +44,7 @@ namespace ToSAddonManager {
                     Version installedVersion = new Version(); Version.TryParse(i.addonVersion.Replace("v", ""), out installedVersion);
                     if (curVersion.CompareTo(installedVersion) > 0) { updateButton.Visibility = Visibility.Visible; }
                 }
-                //}
+                displayRepoAuthor();
             } catch (Exception ex) {
                 Common.showError("Addon Info Window Error", ex);
             }
@@ -60,7 +55,7 @@ namespace ToSAddonManager {
                 actionButton.IsEnabled = false;
                 closeButton.IsEnabled = false;
                 updateButton.IsEnabled = false;
-                AddonManagement am = new AddonManagement() { addonData = addonData, installedAddonData = installedAddonData, rootDir = rootDir };
+                AddonManagement am = new AddonManagement() { addonData = addonData, installedAddonData = installedAddonData, rootDir = rootDir, addonInstallerOverrides = addonInstallerOverrides };
                 // Which action to perform?
                 if (actionButton.Content.ToString() == "Install") {
                     Progress<taskProgressMsg> progressMessages = new Progress<taskProgressMsg>(updateForTaskProgress); // Will contain the progress messages from each function.
@@ -117,9 +112,37 @@ namespace ToSAddonManager {
             }
         } // end Updatebutton_Click
 
+        private async void displayRepoAuthor() {
+            try {
+                if (!string.IsNullOrEmpty(addonData.repoPicURL)) {
+                    HttpResponseMessage webConnectorResponse = await webConnector.GetAsync(addonData.repoPicURL);
+                    if (webConnectorResponse.IsSuccessStatusCode) {
+                        System.IO.Stream imgStream = await webConnectorResponse.Content.ReadAsStreamAsync();
+                        BitmapImage imgSrc = new BitmapImage();
+                        imgSrc.BeginInit();
+                        imgSrc.StreamSource = imgStream;
+                        imgSrc.EndInit();
+                        imgStream.Dispose();
+                        authorPic.Source = imgSrc;
+                    }
+                    webConnectorResponse.Dispose();
+                }
+            } catch (Exception ex) {
+                Common.showError("Display Repo Author Pic Error", ex);
+            }
+        } // end displayRepoAuthorPic
+
         private void updateForTaskProgress(taskProgressMsg progress) {
             statusBar1TextBlock.Text = progress.currentMsg;
             if (progress.showAsPopup) { Common.showError("Error", progress.exceptionContent); }
         } // end updateForTaskProgress
+
+        private void AuthorPic_MouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e) {
+            try {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo($"https://github.com/{addonData.authorRepo}"));
+            } catch (Exception ex) {
+                Common.showError("Repo Author Pic Clicky Error", ex);
+            }
+        }
     }
 }

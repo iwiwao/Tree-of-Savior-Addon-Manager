@@ -42,6 +42,7 @@
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" FontWeight="Bold"/>
             <TextBlock Grid.Row="0" Grid.Column="1" Name="nameValue"/>
+            <Image Grid.Row="0" Grid.Column="1" Name="authorPic" Width="60" Height="60" Grid.RowSpan="2" HorizontalAlignment="Right" VerticalAlignment="Top" MouseUp="AuthorPic_MouseUp"/>
             <TextBlock Grid.Row="1" Grid.Column="0" Text="File:" FontWeight="Bold"/>
             <TextBlock Grid.Row="1" Grid.Column="1" Name="fileValue"/>
             <TextBlock Grid.Row="2" Grid.Column="0" Text="Version:" FontWeight="Bold"/>
