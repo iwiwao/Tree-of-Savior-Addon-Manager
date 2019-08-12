@@ -1,18 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
-using System.Windows.Shapes;
-using System.Windows.Threading;
 using Newtonsoft.Json;
 using System.Net.Http;
 
@@ -222,7 +216,6 @@ namespace ToSAddonManager {
         #endregion
 
         #region "WrapPanel Setup and Control"
-
         private void displayActiveGrid() {
             try {
                 ItemsControl ic = null;
@@ -244,7 +237,7 @@ namespace ToSAddonManager {
 
                     addonDisplayData q = new addonDisplayData() { name = a.Name, description = a.Description, installStatusColor = Brushes.White, whichRepo = a.whichRepo, allowInstall = Visibility.Visible, allowDelete = Visibility.Hidden };
 
-                    string releaseDate = "during the big bang."; // Try to display the release date with the 'available version tag.
+                    string releaseDate = "during the big bang."; // Try to display the release date with the 'available version' tag.
                     if (a.releaseDate != DateTimeOffset.MinValue) { releaseDate = $"on {a.releaseDate.ToLocalTime().ToString("MM/dd/yyyy")}"; }
                     q.availableVersion = $"{a.FileVersion} released {releaseDate}";
                     if (ia != null) { // Addon is installed.
@@ -384,10 +377,10 @@ namespace ToSAddonManager {
                 displayActiveGrid();
             }
         } // end mouseClickUninstallAction
-        #endregion
 
         private void RepoTabs_SelectionChanged(object sender, SelectionChangedEventArgs e) {
             Dispatcher.BeginInvoke((Action)(() => displayActiveGrid()));
         }
+        #endregion
     }
 } // End Class

@@ -5,14 +5,15 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ToSAddonManager"
         mc:Ignorable="d"
-        Title="Addon Information" Height="500" Width="800" Loaded="AddonInfoWindow_Loaded" WindowStartupLocation="CenterOwner" ShowInTaskbar="False" MaxWidth="800" MinWidth="800" MinHeight="500">
+        Title="Addon Information" Height="400" Width="700" Loaded="AddonInfoWindow_Loaded" WindowStartupLocation="CenterOwner" ShowInTaskbar="False" >
 
     <Window.Resources>
         <Style TargetType="TextBlock">
             <Setter Property="HorizontalAlignment" Value="Left" />
             <Setter Property="VerticalAlignment" Value="Top"/>
             <Setter Property="FontSize" Value="18"/>
-            <Setter Property="Padding" Value="10"/>
+            <Setter Property="Padding" Value="15,0"/>
+            <Setter Property="MinHeight" Value="30"/>
         </Style>
         <Style TargetType="Button">
             <Setter Property="FontSize" Value="18"/>
@@ -24,25 +25,25 @@
 
     <DockPanel x:Name="infoDocPanel" LastChildFill="False">
         <StatusBar x:Name="statusBar1" Height="35" Background="{x:Null}" BorderBrush="Black" DockPanel.Dock="Bottom">
-            <TextBlock x:Name="statusBar1TextBlock" FontSize="14" VerticalAlignment="Center" Margin="5,0,0,0"/>
+            <TextBlock x:Name="statusBar1TextBlock" FontSize="14" VerticalAlignment="Center" Margin="5,0,0,0" Padding="0"/>
         </StatusBar>
 
-        <Grid Margin="10" Width="750" >
+        <Grid Margin="0" Width="{Binding Path=ActualWidth, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=UIElement}}">
             <Grid.RowDefinitions>
-                <RowDefinition Height="50"/>
-                <RowDefinition Height="50"/>
-                <RowDefinition Height="50"/>
-                <RowDefinition Height="50"/>
-                <RowDefinition Height="110"/>
-                <RowDefinition/>
+                <RowDefinition Height="30"/>
+                <RowDefinition Height="30"/>
+                <RowDefinition Height="30"/>
+                <RowDefinition Height="30"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="60"/>
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="150"/>
-                <ColumnDefinition/>
+                <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" FontWeight="Bold"/>
             <TextBlock Grid.Row="0" Grid.Column="1" Name="nameValue"/>
-            <Image Grid.Row="0" Grid.Column="1" Name="authorPic" Width="60" Height="60" Grid.RowSpan="2" HorizontalAlignment="Right" VerticalAlignment="Top" MouseUp="AuthorPic_MouseUp"/>
+            <Image Grid.Row="0" Grid.Column="1" Grid.RowSpan="3" Name="authorPic" Width="60" Height="60" Margin="0,5,5,0" HorizontalAlignment="Right" VerticalAlignment="Top" MouseUp="AuthorPic_MouseUp" Panel.ZIndex="1"/>
             <TextBlock Grid.Row="1" Grid.Column="0" Text="File:" FontWeight="Bold"/>
             <TextBlock Grid.Row="1" Grid.Column="1" Name="fileValue"/>
             <TextBlock Grid.Row="2" Grid.Column="0" Text="Version:" FontWeight="Bold"/>
@@ -50,10 +51,10 @@
             <TextBlock Grid.Row="3" Grid.Column="0" Text="Tags:" FontWeight="Bold"/>
             <TextBlock Grid.Row="3" Grid.Column="1" Name="tagsValue"/>
             <TextBlock Grid.Row="4" Grid.Column="0" Text="Description:" FontWeight="Bold"/>
-            <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Grid.Row="4" Grid.Column="1">
-                <TextBlock Name="descriptionValue"/>
+            <ScrollViewer Grid.Row="4" Grid.Column="1" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+                <TextBlock Name="descriptionValue" />
             </ScrollViewer>
-            <StackPanel Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center">
+            <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Center">
                 <StackPanel.Effect>
                     <DropShadowEffect Opacity="0.25" ShadowDepth="3"/>
                 </StackPanel.Effect>
