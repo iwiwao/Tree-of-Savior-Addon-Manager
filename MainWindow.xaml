@@ -82,23 +82,41 @@
                 <MenuItem x:Name="MenuItemExitButton" Header="E_xit" Click="exitButtonClicked"/>
             </MenuItem>
         </Menu>
-        
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,10,0">
-            <TextBlock x:Name="filterTextBlock" Text="Filter: " VerticalAlignment="Top" FontSize="18" HorizontalAlignment="Right" Width="48"/>
-            <TextBox x:Name="filterTB" Height="30" VerticalAlignment="Top" KeyDown="filterTBKeyDownHandler" FontSize="18" HorizontalAlignment="Right" Width="385"/>
-        </StackPanel>
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,5,20,0">
-            <RadioButton x:Name="filterGroupAll" GroupName="filterGroup" Content="All" FontSize="18" IsChecked="True"  VerticalContentAlignment="Center"  Checked="FilterGroupCheckChanged"/>
-            <RadioButton x:Name="filterGroupInstalled" GroupName="filterGroup" Content="Installed" FontSize="18" VerticalContentAlignment="Center" Margin="10,0,10,0" Checked="FilterGroupCheckChanged"/>
-            <RadioButton x:Name="filterGroupUpdatable" GroupName="filterGroup" Content="Updatable" FontSize="18"  VerticalContentAlignment="Center" Margin="0,0,10,0"  Checked="FilterGroupCheckChanged"/>
-            <RadioButton x:Name="filterGroupWhatsNew" GroupName="filterGroup" Content="What's New" FontSize="18"  VerticalContentAlignment="Center"  Checked="FilterGroupCheckChanged"/>
-        </StackPanel>
+        <Grid DockPanel.Dock="Top" HorizontalAlignment="Right" Width="485" Margin="0,0,10,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="80"/>
+                <ColumnDefinition Width="75"/>
+                <ColumnDefinition Width="100"/>
+                <ColumnDefinition Width="110"/>
+                <ColumnDefinition Width="120"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition/>
+                <RowDefinition/>
+                <RowDefinition/>
+                <RowDefinition/>
+            </Grid.RowDefinitions>
+            <TextBlock x:Name="filterTextBlock" Text="Filter: " FontWeight="Bold" FontSize="18" Grid.Column="0" Grid.Row="0" HorizontalAlignment="Right" Margin="0,0,10,0"/>
+            <TextBox x:Name="filterTB" Height="30" VerticalAlignment="Top" KeyDown="filterTBKeyDownHandler" FontSize="18" HorizontalAlignment="Right" Width="405" Grid.Column="1" Grid.Row="0" Grid.ColumnSpan="4"/>
 
+            <RadioButton x:Name="filterGroupAll" GroupName="filterGroup" Content="All" FontSize="18" IsChecked="True" VerticalContentAlignment="Center"  Checked="FilterGroupCheckChanged" Grid.Column="1" Grid.Row="1"/>
+            <RadioButton x:Name="filterGroupInstalled" GroupName="filterGroup" Content="Installed" FontSize="18" VerticalContentAlignment="Center" Checked="FilterGroupCheckChanged" Grid.Column="2" Grid.Row="1"/>
+            <RadioButton x:Name="filterGroupUpdatable" GroupName="filterGroup" Content="Updatable" FontSize="18" VerticalContentAlignment="Center" Checked="FilterGroupCheckChanged" Grid.Column="3" Grid.Row="1"/>
+            <RadioButton x:Name="filterGroupWhatsNew" GroupName="filterGroup" Content="What's New" FontSize="18" VerticalContentAlignment="Center" Checked="FilterGroupCheckChanged" Grid.Column="4" Grid.Row="1"/>
+
+            <Separator Grid.Column="1" Grid.Row="2" Grid.ColumnSpan="4"/>
+
+            <TextBlock x:Name="sortTextBlock" Text="Sort: " VerticalAlignment="Top" FontSize="18" FontWeight="Bold" HorizontalAlignment="Right" Width="48" Margin="0,0,10,0" Grid.Column="0" Grid.Row="3"/>
+            <RadioButton x:Name="sortGroupAddonName" GroupName="sortGroup" Content="Name" FontSize="18" IsChecked="True" VerticalContentAlignment="Center" Checked="FilterGroupCheckChanged" Grid.Column="1" Grid.Row="3"/>
+            <RadioButton x:Name="sortGroupAuthorName" GroupName="sortGroup" Content="Author" FontSize="18" VerticalContentAlignment="Center" Checked="FilterGroupCheckChanged" Grid.Column="2" Grid.Row="3"/>
+            <RadioButton x:Name="sortGroupUpdatedDate" GroupName="sortGroup" Content="Updated" FontSize="18" VerticalContentAlignment="Center" Checked="FilterGroupCheckChanged" Grid.Column="3" Grid.Row="3"/>
+
+        </Grid>
         <StatusBar x:Name="statusBar1" Height="35" Background="{x:Null}" BorderBrush="Black" DockPanel.Dock="Bottom">
             <TextBlock x:Name="statusBar1TextBlock" FontSize="14" Margin="5,0,0,0"/>
         </StatusBar>
 
-        <TabControl x:Name="repoTabs">
+        <TabControl x:Name="repoTabs" SelectionChanged="RepoTabs_SelectionChanged">
             <TabItem Header="iToS" FontSize="18">
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                     <ItemsControl x:Name="iToSIC" ItemTemplate="{DynamicResource storedTemplate}">

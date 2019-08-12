@@ -17,16 +17,13 @@ namespace ToSAddonManager {
                 switch (mode) {
                     case 0:
                         progressMessages.Report(new taskProgressMsg { currentMsg = "Checking iToS Addons" });
-                        //repoParentData iToSRepo = await returnParentRepoData("https://raw.githubusercontent.com/Tree-of-Savior-Addon-Community/Addons/master/addons.json", progressMessages); // Not as up-to-date as JTosAddon
                         repoParentData iToSRepo = await returnParentRepoData("https://raw.githubusercontent.com/JTosAddon/Addons/itos/managers.json", progressMessages);
-                        List<addonDataFromRepo> foo = await returnAddonData(iToSRepo, progressMessages);
-                        addonCollection = foo;
+                        addonCollection = await returnAddonData(iToSRepo, progressMessages);
                         break;
                     case 1:
                         progressMessages.Report(new taskProgressMsg { currentMsg = "Checking jToS Addons" });
                         repoParentData jToSRepo = await returnParentRepoData("https://raw.githubusercontent.com/JTosAddon/Addons/master/managers.json", progressMessages);
-                        List<addonDataFromRepo> bar = await returnAddonData(jToSRepo, progressMessages);
-                        addonCollection = bar;
+                        addonCollection = await returnAddonData(jToSRepo, progressMessages);
                         break;
                 }
             } catch (Exception ex) {
@@ -46,7 +43,6 @@ namespace ToSAddonManager {
                 } else {
                     progressMessages.Report(new taskProgressMsg { currentMsg = "Error in returnParentRepoData: ", showAsPopup = true, exceptionContent = new HttpRequestException() });
                 }
-
                 webConnectorResponse.Dispose();
             } catch (Exception ex) {
                 progressMessages.Report(new taskProgressMsg { currentMsg = "Error in returnParentRepoData: ", showAsPopup = true, exceptionContent = ex });
@@ -76,16 +72,12 @@ namespace ToSAddonManager {
                 HttpResponseMessage webConnectorResponse = await webConnector.GetAsync($"https://raw.githubusercontent.com/{repoURI}/master/addons.json");
                 if (webConnectorResponse.IsSuccessStatusCode) {
                     string resultString = await webConnectorResponse.Content.ReadAsStringAsync();
-                    webConnectorResponse.Dispose();
-                    List<addonDataFromRepo> tempAddons = new List<addonDataFromRepo>();
-                    tempAddons = JsonConvert.DeserializeObject<List<addonDataFromRepo>>(resultString);
-                    //addons.Select(x => { x.authorRepo = repoURI; x.tagsFlat = string.Join(",", x.Tags); return x; }).ToList();
-                    foreach (addonDataFromRepo q in tempAddons) {
-                        DateTimeOffset releaseDate = DateTimeOffset.MinValue;
-                        string repoPicURL = "";
-                        atomDataResult f = atomData.FirstOrDefault(x => x.tag == q.ReleaseTag); // Attempt to match this addon to the atom data passed in.  Not certain this is the best filtering.
-                        if (f != null) { releaseDate = f.updated; repoPicURL = f.repoPicURL; }
-                        addons.Add(new addonDataFromRepo { authorRepo = repoURI, Description = q.Description, Extension = q.Extension, File = q.File, FileVersion = q.FileVersion, Name = q.Name, ReleaseTag = q.ReleaseTag, Tags = q.Tags, tagsFlat = string.Join(",", q.Tags), Unicode = q.Unicode, whichRepo = q.whichRepo, releaseDate = releaseDate, repoPicURL = repoPicURL });
+                    addons = JsonConvert.DeserializeObject<List<addonDataFromRepo>>(resultString);
+                    for (int i = 0; i < addons.Count; i++) {
+                        addons[i].authorRepo = repoURI;
+                        addons[i].tagsFlat = string.Join(",", addons[i].Tags);
+                        atomDataResult f = atomData.FirstOrDefault(x => x.tag == addons[i].ReleaseTag); // Attempt to match this addon to the atom data passed in.  Not certain this is the best filtering.
+                        if (f != null) { addons[i].releaseDate = f.updated; addons[i].repoPicURL = f.repoPicURL; } else { addons[i].releaseDate = DateTimeOffset.MinValue; addons[i].repoPicURL = ""; }
                     }
                 }
                 webConnectorResponse.Dispose();
@@ -97,19 +89,30 @@ namespace ToSAddonManager {
 
         internal async Task<bool> checkAndInstallDependencies(IProgress<taskProgressMsg> progressMessages) {
             try {
-                if (string.IsNullOrEmpty(rootDir)) { return false; }
+                // Currently, leaving this as a self-contained function.  May merge it with the jToS addon download since the dependancy list comes from that repo data, so we could avoid the second hit to Github.
+                if (string.IsNullOrEmpty(rootDir)) { return false; } 
                 progressMessages.Report(new taskProgressMsg { currentMsg = "Downloading/Refreshing Dependencies" });
-                string[] depFiles = { "acutil.lua", "json.lua", "cwapi.lua", "xmlSimple.lua" };
-
-                foreach (string q in depFiles) {
-                    // Currently, we will just overwrite existing files since there isn't recorded version information.
-                    progressMessages.Report(new taskProgressMsg { currentMsg = $"Downloading {q}" });
-                    HttpResponseMessage webConnectorResponse = await webConnector.GetAsync($"https://raw.githubusercontent.com/Tree-of-Savior-Addon-Community/AC-Util/master/src/{q}");
-                    webConnectorResponse.EnsureSuccessStatusCode();
-                    System.IO.FileStream fs = new System.IO.FileStream($"{rootDir}/release/lua/{q}", System.IO.FileMode.Create);
-                    await webConnectorResponse.Content.CopyToAsync(fs); fs.Close(); fs.Dispose();
-                    webConnectorResponse.Dispose();
+                repoParentData repoSource = new repoParentData();
+                HttpResponseMessage webConnectorResponse = await webConnector.GetAsync("https://raw.githubusercontent.com/JTosAddon/Addons/master/managers.json");
+                if (webConnectorResponse.IsSuccessStatusCode) {
+                    string resultString = await webConnectorResponse.Content.ReadAsStringAsync();
+                    repoSource = JsonConvert.DeserializeObject<repoParentData>(resultString);
+                } else {
+                    progressMessages.Report(new taskProgressMsg { currentMsg = "Error in returnParentRepoData: ", showAsPopup = true, exceptionContent = new HttpRequestException() });
                 }
+                if (repoSource.Dependencies != null && repoSource.Dependencies.Count > 0) {
+                    foreach (Dependency q in repoSource.Dependencies) {
+                        // Currently, we will just overwrite existing files since there isn't recorded version information.
+                        string depFilename = System.IO.Path.GetFileName(q.Url.AbsolutePath);
+                        progressMessages.Report(new taskProgressMsg { currentMsg = $"Downloading {depFilename}" });
+                        webConnectorResponse = await webConnector.GetAsync(q.Url);
+                        if (webConnectorResponse.IsSuccessStatusCode) {
+                            System.IO.FileStream fs = new System.IO.FileStream($"{rootDir}/release/lua/{depFilename}", System.IO.FileMode.Create);
+                            await webConnectorResponse.Content.CopyToAsync(fs); fs.Close(); fs.Dispose();
+                        }
+                    }
+                }
+                webConnectorResponse.Dispose();
             } catch (Exception ex) {
                 progressMessages.Report(new taskProgressMsg { currentMsg = "Dependency Download Error", exceptionContent = ex, showAsPopup = true });
             }
@@ -166,7 +169,7 @@ namespace ToSAddonManager {
                         string[] idSPlit = q.Id.Split('/'); // The last element (splitting on /) of the ID will have the tag we need for the ?after= string.  Example: <id>tag:github.com,2008:Repository/71538918/zoomyplus_tbl</id>
                         string tag = idSPlit[idSPlit.Count() - 1];
                         after = $"?after={tag}";
-                        ret.Add(new atomDataResult { title = q.Title, tag = tag, updated = q.Updated, repoPicURL = q.MediaThumbnail != null ? q.MediaThumbnail.Url : ""});
+                        ret.Add(new atomDataResult { title = q.Title, tag = tag, updated = q.Updated, repoPicURL = q.MediaThumbnail != null ? q.MediaThumbnail.Url : "" });
                     }
                     if (atomConv.Feed.Entry.Count < 10) { continueLoop = false; }
                 } while (continueLoop);

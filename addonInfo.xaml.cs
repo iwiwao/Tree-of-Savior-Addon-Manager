@@ -31,7 +31,8 @@ namespace ToSAddonManager {
                 // Set basic addon info.
                 nameValue.Text = addonData.Name;
                 fileValue.Text = addonData.File;
-                versionValue.Text = $"{addonData.FileVersion} released {addonData.releaseDate.ToLocalTime().ToString("MM/dd/yyyy")}";
+                string releaseDate = addonData.releaseDate.Year == 1 ? "before the dawn of man." : addonData.releaseDate.ToLocalTime().ToString("MM/dd/yyyy");
+                versionValue.Text = $"{addonData.FileVersion} released {releaseDate}";
                 tagsValue.Text = addonData.tagsFlat;
                 descriptionValue.Text = addonData.Description;
                 descriptionValue.TextWrapping = TextWrapping.Wrap;
