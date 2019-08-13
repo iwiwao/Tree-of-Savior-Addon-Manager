@@ -11,4 +11,4 @@ Broken addons (Pulled from [JTosAddon's list](https://github.com/JTosAddon/Addon
 
 Main Screen:
 
-![Main Screen](http://www.badass.org/tos/ToS1.0.3MS.png)
+![Main Screen](http://www.badass.org/tos/ToS1.0.7MS.png)
