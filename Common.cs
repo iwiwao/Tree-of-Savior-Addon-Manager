@@ -21,5 +21,20 @@ namespace ToSAddonManager {
             }
             return ret;
         } // end checkForToSProcess
+
+        internal static bool checkForToSDirectory(string tosRootDir) {
+            bool ret = false;
+            if (!string.IsNullOrEmpty(tosRootDir) && System.IO.Directory.Exists(tosRootDir)) {
+                System.Security.Permissions.FileIOPermission fP = new System.Security.Permissions.FileIOPermission(System.Security.Permissions.FileIOPermissionAccess.Read, tosRootDir);
+                fP.AddPathList(System.Security.Permissions.FileIOPermissionAccess.Write | System.Security.Permissions.FileIOPermissionAccess.Read, tosRootDir);
+                try {
+                    fP.Demand();
+                    ret = true;
+                } catch (System.Security.SecurityException ex) {
+                    Common.showError("Invalid access to directory", ex);
+                }
+            }
+            return ret;
+        } // end checkForToSDirectory
     }
 }

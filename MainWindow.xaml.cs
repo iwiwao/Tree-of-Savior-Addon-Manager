@@ -95,7 +95,6 @@ namespace ToSAddonManager {
 
         private async void MenuItemUpdateCache_Click(object sender, RoutedEventArgs e) {
             try {
-                if (string.IsNullOrEmpty(tosAMProgramSettings.tosRootDir) || !System.IO.Directory.Exists(tosAMProgramSettings.tosRootDir)) { MessageBox.Show("Please set a valid ToS Program directory (Required for dependancy download)"); return; }
                 MenuItemUpdateCache.IsEnabled = false;
                 statusBar1TextBlock.Text = "Started Cache Update";
                 Progress<taskProgressMsg> progressMessages = new Progress<taskProgressMsg>(updateForTaskProgress); // Will contain the progress messages from each function.
@@ -112,7 +111,6 @@ namespace ToSAddonManager {
 
                 listOfBrokenAddons = await rCM.returnBrokenAddonData(progressMessages); // Download list of broken addons.
                 listOfAddonOverrides = await rCM.returnAddonInstallerOverride(progressMessages); // Return manually-maintained list of addon overrides.
-                await rCM.checkAndInstallDependencies(progressMessages); // Dependencies - does not care about return values.
 
                 listOfAllAddons.Clear(); listOfAllAddons = iToSCollections.Concat(jToSCollections).ToList();
 
@@ -133,16 +131,25 @@ namespace ToSAddonManager {
             if (fd.ShowDialog() == true) {
                 string fullPath = System.IO.Path.GetDirectoryName(fd.FileName);
                 if (System.IO.Directory.Exists(fullPath + "/addons") && System.IO.Directory.Exists(fullPath + "/data")) {
-                    tosAMProgramSettings.tosRootDir = fullPath;
+                    if (Common.checkForToSDirectory(tosAMProgramSettings.tosRootDir)) { tosAMProgramSettings.tosRootDir = fullPath; }
                 } else {
                     MessageBox.Show("Tree of Savior directory selection was not valid");
                 }
             }
         } // end MenuItemSelectToSDir_Click
 
-        private void filterTBKeyDownHandler(object sender, KeyEventArgs e) {
-            if (e.Key == Key.Return) { displayActiveGrid(); }
-        } // end filterTBKeyDownHandler
+        private async void MenuItemUpdateDeps_Click(object sender, RoutedEventArgs e) {
+            try {
+                if (Common.checkForToSDirectory(tosAMProgramSettings.tosRootDir) == false) { MessageBox.Show("Please set a valid ToS Program directory."); return; }
+                statusBar1TextBlock.Text = "Starting Dependency download functions.";
+                Progress<taskProgressMsg> progressMessages = new Progress<taskProgressMsg>(updateForTaskProgress); // Will contain the progress messages from each function.
+                repoCacheManagement rCM = new repoCacheManagement() { rootDir = tosAMProgramSettings.tosRootDir, webConnector = webConnector };
+                await rCM.checkAndInstallDependencies(progressMessages); // Dependencies - does not care about return values.
+                statusBar1TextBlock.Text = "Completed Dependency download functions.";
+            } catch (Exception ex) {
+                Common.showError("Update Dependency Error", ex);
+            }
+        } // end MenuItemUpdateDeps_Click
 
         private async void checkForUpdates(object sender, RoutedEventArgs e) {
             try {
@@ -176,7 +183,7 @@ namespace ToSAddonManager {
 
         private void FindExistingAddons_Click(object sender, RoutedEventArgs e) {
             try {
-                if (string.IsNullOrEmpty(tosAMProgramSettings.tosRootDir) || !System.IO.Directory.Exists(tosAMProgramSettings.tosRootDir)) { MessageBox.Show("Please set a valid ToS Program directory."); return; }
+                if (Common.checkForToSDirectory(tosAMProgramSettings.tosRootDir) == false) { MessageBox.Show("Please set a valid ToS Program directory."); return; }
                 MessageBoxResult mb = MessageBox.Show("This will attempt to find addons that were previously installed manually or through another manager and update the installed addon list.  Proceed?", "Find Existing Addons", MessageBoxButton.YesNo, MessageBoxImage.Information);
                 if (mb == MessageBoxResult.Yes) {
                     string[] fileList = System.IO.Directory.GetFiles($"{tosAMProgramSettings.tosRootDir}/data/", "_*.ipf");
@@ -209,6 +216,10 @@ namespace ToSAddonManager {
                 Common.showError("Allow Automatic Update Check Changed Error", ex);
             }
         }
+
+        private void filterTBKeyDownHandler(object sender, KeyEventArgs e) {
+            if (e.Key == Key.Return) { displayActiveGrid(); }
+        } // end filterTBKeyDownHandler
 
         private void FilterGroupCheckChanged(object sender, RoutedEventArgs e) {
             displayActiveGrid();
@@ -288,7 +299,7 @@ namespace ToSAddonManager {
         private void mouseClickInfoAction(object sender, MouseButtonEventArgs e) {
             try {
                 if (e.ChangedButton == MouseButton.Left) {
-                    if (string.IsNullOrEmpty(tosAMProgramSettings.tosRootDir) || !System.IO.Directory.Exists(tosAMProgramSettings.tosRootDir)) { MessageBox.Show("Please set a valid ToS Program directory"); return; }
+                    if (Common.checkForToSDirectory(tosAMProgramSettings.tosRootDir) == false) { MessageBox.Show("Please set a valid ToS Program directory."); return; }
                     Image i = (Image)sender;
                     addonDisplayData addon = (addonDisplayData)i.DataContext;
                     addonDataFromRepo selectedAddon = listOfAllAddons.FirstOrDefault(x => x.whichRepo == addon.whichRepo && x.Name == addon.name);
@@ -311,7 +322,7 @@ namespace ToSAddonManager {
         private async void mouseClickInstallAction(object sender, MouseButtonEventArgs e) {
             try {
                 if (e.ChangedButton == MouseButton.Left) {
-                    if (string.IsNullOrEmpty(tosAMProgramSettings.tosRootDir) || !System.IO.Directory.Exists(tosAMProgramSettings.tosRootDir)) { MessageBox.Show("Please set a valid ToS Program directory"); return; }
+                    if (Common.checkForToSDirectory(tosAMProgramSettings.tosRootDir) == false) { MessageBox.Show("Please set a valid ToS Program directory."); return; }
                     Image i = (Image)sender;
                     addonDisplayData addon = (addonDisplayData)i.DataContext;
                     addonDataFromRepo selectedAddon = listOfAllAddons.FirstOrDefault(x => x.whichRepo == addon.whichRepo && x.Name == addon.name);
@@ -351,7 +362,7 @@ namespace ToSAddonManager {
         private void mouseClickUninstallAction(object sender, MouseButtonEventArgs e) {
             try {
                 if (e.ChangedButton == MouseButton.Left) {
-                    if (string.IsNullOrEmpty(tosAMProgramSettings.tosRootDir) || !System.IO.Directory.Exists(tosAMProgramSettings.tosRootDir)) { MessageBox.Show("Please set a valid ToS Program directory"); return; }
+                    if (Common.checkForToSDirectory(tosAMProgramSettings.tosRootDir) == false) { MessageBox.Show("Please set a valid ToS Program directory."); return; }
                     if (Common.checkForToSProcess()) { MessageBox.Show("Cannot uninstall addons while ToS is running.", "ToS Running", MessageBoxButton.OK, MessageBoxImage.Exclamation); return; }
                     Image i = (Image)sender;
                     addonDisplayData addon = (addonDisplayData)i.DataContext;

@@ -72,14 +72,18 @@
     <DockPanel x:Name="dockPanel">
         <Menu Background="{x:Null}" DockPanel.Dock="Top" VerticalAlignment="Top">
             <MenuItem Header="_File" InputGestureText="Alt+F" FontSize="18">
-                <MenuItem x:Name="MenuItemUpdateCache" Header="_Update Cache" Click="MenuItemUpdateCache_Click"/>
                 <MenuItem x:Name="MenuItemSelectToSDir" Header="_Select ToS Install Directory" Click="MenuItemSelectToSDir_Click"/>
-                <MenuItem x:Name="FindExistingAddons" Header="_Find Existing Addons" Click="FindExistingAddons_Click"/>
                 <Separator/>
                 <MenuItem x:Name="CheckForUpdates" Header="_Check For Program Updates" Click="checkForUpdates"/>
                 <MenuItem x:Name="AllowAutoCheck" Header="_Allow Automatic Program Update Check" IsCheckable="True" Click="allowAutomaticUpdatesCheckChanged"/>
                 <Separator/>
                 <MenuItem x:Name="MenuItemExitButton" Header="E_xit" Click="exitButtonClicked"/>
+            </MenuItem>
+            <MenuItem Header="_Addons" InputGestureText="Alt+A" FontSize="18">
+                <MenuItem x:Name="MenuItemUpdateCache" Header="_Update Repo Cache" Click="MenuItemUpdateCache_Click"/>
+                <MenuItem x:Name="MenuItemUpdateDeps" Header="U_pdate Dependencies" Click="MenuItemUpdateDeps_Click"/>
+                <Separator/>
+                <MenuItem x:Name="FindExistingAddons" Header="_Find Existing Addons" Click="FindExistingAddons_Click"/>
             </MenuItem>
         </Menu>
         <Grid DockPanel.Dock="Top" HorizontalAlignment="Right" Width="485" Margin="0,0,10,0">

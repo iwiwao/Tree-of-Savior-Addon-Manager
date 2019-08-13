@@ -89,8 +89,6 @@ namespace ToSAddonManager {
 
         internal async Task<bool> checkAndInstallDependencies(IProgress<taskProgressMsg> progressMessages) {
             try {
-                // Currently, leaving this as a self-contained function.  May merge it with the jToS addon download since the dependancy list comes from that repo data, so we could avoid the second hit to Github.
-                if (string.IsNullOrEmpty(rootDir)) { return false; } 
                 progressMessages.Report(new taskProgressMsg { currentMsg = "Downloading/Refreshing Dependencies" });
                 repoParentData repoSource = new repoParentData();
                 HttpResponseMessage webConnectorResponse = await webConnector.GetAsync("https://raw.githubusercontent.com/JTosAddon/Addons/master/managers.json");
@@ -151,7 +149,7 @@ namespace ToSAddonManager {
                 progressMessages.Report(new taskProgressMsg { currentMsg = "Error in returnAddonInstallerOverride", showAsPopup = true, exceptionContent = ex });
             }
             return listOfAddonOverrides;
-        }
+        } // end returnAddonInstallerOverride
 
         internal List<atomDataResult> returnAtomData(string repo, IProgress<taskProgressMsg> progressMessages) {
             List<atomDataResult> ret = new List<atomDataResult>();
