@@ -20,6 +20,8 @@ namespace ToSAddonManager {
 
         public addonInfo() {
             InitializeComponent();
+            authorPic.MouseEnter += delegate { System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Hand; };
+            authorPic.MouseLeave += delegate { System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Arrow; };
         }
 
         private void closeButton_Click(object sender, RoutedEventArgs e) {
